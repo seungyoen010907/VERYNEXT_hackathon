@@ -15,12 +15,16 @@ import { mockChecklist, mockDeal, mockDocuments, mockMessages } from "@/lib/mock
 import { getRoadmap } from "@/lib/roadmap";
 import type { ChecklistItem, DealDocument } from "@/lib/types";
 
+const VISIBLE_DOCS = 3;
+
 export default function DealRoom({ id }: { id: string }) {
   const role = useRole();
   const deal = { ...mockDeal, id };
   const [checklist, setChecklist] = useState(mockChecklist);
   const [documents, setDocuments] = useState(mockDocuments);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [showAllDocs, setShowAllDocs] = useState(false);
+  const myTodo = checklist.filter((i) => i.role === role && i.status === "todo").length;
 
   // 양수인은 양도인이 동의하기 전에는 자료를 볼 수 없다 (API.md 4번)
   const canSeeDocuments = role === "seller" || deal.seller_consent;
@@ -80,63 +84,85 @@ export default function DealRoom({ id }: { id: string }) {
       </section>
 
       {/* 3. 왼쪽 사이드바 + 가운데 채팅창 */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-start">
-        <aside
-          className={
-            "rounded-xl border border-border bg-card md:sticky md:top-4 " +
-            (sidebarOpen ? "md:w-80 md:shrink-0" : "md:w-auto")
-          }
-        >
-          <div className="flex items-center gap-2 p-2">
+      {/* 데스크톱: 화면 높이에 맞춰 사이드바와 채팅창이 한 화면에 들어온다 */}
+      <div className="flex flex-col gap-4 md:h-[calc(100vh-19rem)] md:min-h-[560px] md:flex-row">
+        <aside className={"flex flex-col gap-3 md:min-h-0 " + (sidebarOpen ? "md:w-96 md:shrink-0" : "md:w-auto")}>
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setSidebarOpen(!sidebarOpen)}
               aria-expanded={sidebarOpen}
               aria-label={sidebarOpen ? "체크리스트 닫기" : "체크리스트 열기"}
-              className="flex size-9 items-center justify-center rounded-lg text-muted hover:bg-bg hover:text-text"
+              className="flex size-9 items-center justify-center rounded-lg border border-border bg-card text-muted hover:text-text"
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
                 <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
               </svg>
             </button>
-            {sidebarOpen && <span className="text-sm font-medium">체크리스트 · 자료</span>}
+            {sidebarOpen && <span className="text-sm text-muted">{ROLE_LABEL[role]}의 할 일과 자료</span>}
           </div>
 
           {sidebarOpen && (
-            <div className="space-y-6 border-t border-border p-4 md:max-h-[calc(100vh-6rem)] md:overflow-y-auto">
-              <section>
-                <h2 className="mb-3 text-sm font-medium text-muted">내 체크리스트 ({ROLE_LABEL[role]})</h2>
-                <Checklist items={checklist} role={role} currentStage={deal.stage} onUpload={handleUpload} />
+            <>
+              {/* 체크리스트 카드 */}
+              <section className="flex flex-col overflow-hidden rounded-xl border border-border bg-card md:min-h-0 md:flex-1">
+                <SidebarHeader title="체크리스트" count={`할 일 ${myTodo}개`} />
+                <div className="p-2.5 md:min-h-0 md:flex-1 md:overflow-y-auto">
+                  <Checklist items={checklist} role={role} currentStage={deal.stage} onUpload={handleUpload} />
+                </div>
               </section>
 
-              <section>
-                <h2 className="mb-2 text-sm font-medium text-muted">제출된 자료</h2>
-                {!canSeeDocuments ? (
-                  <p className="rounded-lg bg-bg p-3 text-sm text-muted">양도인이 자료 공개에 동의하면 볼 수 있어요.</p>
-                ) : documents.length === 0 ? (
-                  <p className="text-sm text-muted">아직 올린 자료가 없어요.</p>
-                ) : (
-                  <ul className="divide-y divide-border text-sm">
-                    {documents.map((d) => (
-                      <li key={d.id} className="flex items-center justify-between gap-3 py-2">
-                        <span className="min-w-0 truncate">{d.file_name}</span>
-                        <span className="shrink-0 text-xs text-muted">{Math.max(1, Math.ceil(d.size / 1024))}KB</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+              {/* 제출된 자료 카드 */}
+              <section className="flex shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-card md:max-h-[40%]">
+                <SidebarHeader title="제출된 자료" count={canSeeDocuments ? `${documents.length}개` : ""} />
+                <div className="p-3 md:min-h-0 md:overflow-y-auto">
+                  {!canSeeDocuments ? (
+                    <p className="rounded-lg bg-bg p-3 text-sm text-muted">양도인이 자료 공개에 동의하면 볼 수 있어요.</p>
+                  ) : documents.length === 0 ? (
+                    <p className="text-sm text-muted">아직 올린 자료가 없어요.</p>
+                  ) : (
+                    <>
+                      <ul className="divide-y divide-border text-sm [&>li]:py-1.5">
+                        {(showAllDocs ? documents : documents.slice(0, VISIBLE_DOCS)).map((d) => (
+                          <li key={d.id} className="flex items-center justify-between gap-3 py-2">
+                            <span className="min-w-0 truncate">{d.file_name}</span>
+                            <span className="shrink-0 text-xs text-muted">{Math.max(1, Math.ceil(d.size / 1024))}KB</span>
+                          </li>
+                        ))}
+                      </ul>
+                      {documents.length > VISIBLE_DOCS && (
+                        <button
+                          type="button"
+                          onClick={() => setShowAllDocs(!showAllDocs)}
+                          className="mt-1 w-full text-center text-sm text-accent"
+                        >
+                          {showAllDocs ? "접기" : `자료 ${documents.length - VISIBLE_DOCS}개 더 보기`}
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
               </section>
-            </div>
+            </>
           )}
         </aside>
 
-        <section className="flex h-[70vh] min-h-[420px] min-w-0 flex-1 flex-col rounded-xl border border-border bg-card p-4">
+        <section className="flex h-[70vh] min-h-[420px] min-w-0 flex-1 flex-col rounded-xl border border-border bg-card p-4 md:h-full">
           <h2 className="mb-3 shrink-0 text-sm font-medium text-muted">메시지</h2>
           <div className="min-h-0 flex-1">
             <Messages initial={mockMessages} role={role} />
           </div>
         </section>
       </div>
+    </div>
+  );
+}
+
+function SidebarHeader({ title, count }: { title: string; count: string }) {
+  return (
+    <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-bg px-3 py-2">
+      <h2 className="text-sm font-bold">{title}</h2>
+      {count && <span className="text-xs text-muted">{count}</span>}
     </div>
   );
 }

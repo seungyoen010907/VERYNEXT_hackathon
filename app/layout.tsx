@@ -21,7 +21,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full font-sans">
         <RoleProvider>
           <header className="border-b border-border bg-card">
-            <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 md:px-6">
               <Link href="/" className="min-w-0">
                 <p className="font-bold">점포 양도양수 에이전트</p>
                 <p className="text-xs text-muted">매출 검증부터 계약까지 한 거래방에서</p>
@@ -34,7 +34,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               </div>
             </div>
           </header>
-          <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
+          <main className="px-4 py-6 md:px-6">{children}</main>
         </RoleProvider>
       </body>
     </html>
