@@ -571,7 +571,7 @@ function AccessTab({ room, onChanged }: { room: DataRoom; onChanged: () => void 
                 <tr className="border-t border-bg bg-accent/5">
                   <td className="px-4 py-3">AI 교차 검증 리포트</td>
                   <td className="px-4 py-3 whitespace-nowrap">AI 분석</td>
-                  <td className="px-4 py-3 text-xs text-muted">원본 파일 없음</td>
+                  <td className="px-4 py-3 text-xs text-caution">원본 파일 없음 · 매출 자료 전체의 월별 숫자가 들어 있어요. 공개하면 그 숫자도 함께 보여요.</td>
                   <td className="px-4 py-3">
                     <select
                       value={room.report_access.level}

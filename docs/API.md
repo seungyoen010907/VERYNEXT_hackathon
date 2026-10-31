@@ -500,26 +500,39 @@ AI는 **두 번** 부른다. 숫자 비교·합계·등급은 AI가 아니라 �
 
 답변 종류(`answer_type`): `auto`(자동 응답), `needs_approval`(양도인 승인 필요), `needs_documents`(추가 자료 필요), `no_data`(자료 없음), `denied`(접근 거부)
 
-### 10.5 엔드포인트 (추가)
+### 10.5 엔드포인트 (추가, 구현 완료)
 
 | 메서드·경로 | 하는 일 | 권한 |
 |---|---|---|
-| GET `/api/me` | 현재 데모 사용자 | 누구나 |
-| GET/POST `/api/listings` | 매물 목록(권한 필터 + 추천 점수) / 매물 등록 | 등록은 양도인 |
-| GET/PATCH `/api/listings/[id]` | 데이터룸 (권한 필터) / 기본정보 수정 | 수정은 소유 양도인 |
-| POST `/api/listings/[id]/documents` | 자료 업로드 + 추출 저장 | 소유 양도인 |
-| PATCH `/api/documents/[id]` | 공개 등급·추출값 수정 | 소유 양도인 |
-| GET `/api/documents/[id]/download` | signed URL | canAccess(raw) |
-| POST `/api/listings/[id]/nda` | NDA 테스트 동의 / 철회 | 양수인 |
-| GET `/api/listings/[id]/requests` | 구매자 요청 목록 | 소유 양도인 |
-| PATCH `/api/grants/[id]` | 승인·거절·회수 | 소유 양도인 |
-| GET/PUT `/api/buyer/profile` | 인수 프로필 | 양수인 본인 |
-| POST `/api/agent/tasks` | 실사 시작 (질문 생성·전달·답변) | 양수인 |
-| GET `/api/agent/tasks/[id]` | 질문·답변·상태 목록 | 그 양수인 |
-| GET `/api/compare?ids=a,b,c` | 비교표 (객관 + 개인 맞춤) | 양수인, 권한 필터 |
-| POST `/api/demo` | 샘플 매물 3개 + 데모 사용자 생성 (샘플 표시) | 누구나 |
+| GET/POST `/api/listings` | 매물 목록(내 매물 + 공개 매물, 양수인이면 추천 점수) / 매물 등록 | 등록은 양도인 |
+| GET/PATCH `/api/listings/[id]` | 데이터룸 (`lib/visible.ts`로 권한 필터, 잠긴 항목·NDA 상태 포함) / 기본정보·공개 상태 수정 | 수정은 소유 양도인 |
+| POST `/api/listings/[id]/documents` | 자료 업로드 → Storage → AI 추출 저장(한 번만) | 소유 양도인 |
+| POST `/api/listings/[id]/verify` | 저장된 추출값으로 교차 검증 리포트 (파일 재분석 없음) | 소유 양도인 |
+| PATCH `/api/documents/[id]` | 원본·요약 공개 등급, 분류 변경 (AI 리포트 항목 포함) | 소유 양도인 |
+| POST `/api/documents/[id]/analyze` | AI 분석 실패 자료 다시 분석 | 소유 양도인 |
+| GET `/api/documents/[id]/download` | 60초 signed URL | canSee(원본) |
+| PATCH `/api/data-points/[id]` | 추출값 수정 → 신뢰 수준 "점주 진술", 원래 값 기록 | 소유 양도인 |
+| POST `/api/listings/[id]/nda` | NDA 테스트 동의 / 철회 (철회하면 AI 답 다시 계산) | 양수인 |
+| GET/POST `/api/listings/[id]/requests` | 구매자 요청 관리(요청·NDA·AI 질문·기록) / 잠긴 자료 열람 요청 | 조회는 소유 양도인, 요청은 양수인 |
+| PATCH `/api/grants/[id]` | 승인·거절·회수 → 기다리던 AI 질문 자동 재처리 | 소유 양도인 |
+| GET/PUT `/api/buyer/profile` | 인수 조건 | 양수인 본인 |
+| GET/POST `/api/agent/tasks` | 내 실사 목록 / 실사 시작 (매물 최대 3개 동시) | 양수인 |
+| GET `/api/agent/tasks/[id]` | 질문·답·상태 + 코드 비교 + 저장된 AI 통합 분석 | 그 양수인 |
+| POST `/api/agent/tasks/[id]/rerun` | 거부·자료 없음·오류 질문 다시 묻기 | 그 양수인 |
+| POST `/api/agent/tasks/[id]/summary` | AI 통합 분석 (숫자는 코드 계산값만) | 그 양수인 |
+| GET `/api/compare?ids=a,b,c` | 비교표 (객관 + 개인 맞춤, 근거 포함) | 볼 수 있는 자료만 |
+| GET `/api/dashboard` | 역할별 대시보드 숫자 | 로그인한 데모 사용자 |
+| POST `/api/demo` | 샘플 매물 3개(A·B·C) + 양수인 조건 다시 만들기 (샘플만 지움) | 누구나 |
 
 에러 응답은 지금처럼 `{ error }` + 400/401/403/404/500/502.
+
+### 10.7 구현 메모
+
+- 권한 필터는 `lib/visible.ts`의 `loadVisibleData()` 한 곳에서만 한다. 데이터룸·추천·비교·양도인 AI 답이 모두 이 함수를 거치므로, AI 입력에 권한 없는 값이 들어갈 길이 없다.
+- AI 교차 검증 리포트는 파일 없는 데이터룸 항목(`documents.kind = 'report'`)으로 저장해서 공개 등급을 따로 정한다. 리포트에는 매출 자료 전체의 월별 숫자가 들어 있다.
+- 권한이 줄면(승인 회수, NDA 철회) 이미 받은 AI 답도 지금 권한으로 다시 계산한다. 거절·회수된 자료는 AI가 다시 요청하지 않는다.
+- 샘플 파일의 AI 추출 결과는 `samples/extractions.json`에 저장해 재사용한다.
+- 통합 테스트: `npm run dev` 상태에서 `node scripts/e2e.mjs` (46개 확인 항목).
 
 ### 10.6 추천·비교 계산 (코드)
 

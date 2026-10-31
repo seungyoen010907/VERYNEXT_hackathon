@@ -235,6 +235,7 @@ async function restrictedAnswer(
   const docIds = [...new Set(restricted.filter((p) => p.access_level === "L2" && p.document_id).map((p) => p.document_id!))];
   const supabase = getSupabase();
   let grantId: string | null = null;
+  let blocked = 0; // 양도인이 거절·회수한 자료는 AI가 다시 요청하지 않는다 (양수인이 직접 다시 요청할 수는 있다)
   for (const docId of docIds) {
     const { data: existing } = await supabase
       .from("access_grants")
@@ -248,6 +249,10 @@ async function restrictedAnswer(
       grantId ??= existing.id;
       continue;
     }
+    if (existing && (existing.status === "rejected" || existing.status === "revoked")) {
+      blocked++;
+      continue;
+    }
     const { data: g, error } = await supabase
       .from("access_grants")
       .upsert(
@@ -259,6 +264,9 @@ async function restrictedAnswer(
     if (error) throw error;
     grantId ??= g.id;
     await audit(m.buyer_id, "grant_request", listing.id, `양수인 AI가 자료 열람 요청 (${m.topic})`);
+  }
+  if (!grantId && blocked > 0) {
+    return { status: "rejected", answer_type: "denied", answer: "양도인이 이 자료의 열람 요청을 거절했거나 권한을 회수했어요.", evidence: [], updated_at: now };
   }
   return {
     status: "pending_approval",
@@ -307,7 +315,7 @@ function computedSummary(topic: Topic, listing: Listing, allowed: DataPoint[]): 
     out["월평균 매출"] = `${won(f.monthly_sales_avg.value)} (${f.monthly_sales_avg.basis})`;
     if (f.sales_volatility.value !== null) out["매출 변동계수"] = `${f.sales_volatility.value}%`;
   }
-  if (topic === "cost" && f.monthly_cost_avg.value !== null) out["월평균 비용"] = `${won(f.monthly_cost_avg.value)} (${f.monthly_cost_avg.basis})`;
+  if (topic === "cost" && f.monthly_cost_avg.value !== null) out["월평균 비용 (비용 내역 기준, 관리비 제외)"] = `${won(f.monthly_cost_avg.value)} (${f.monthly_cost_avg.basis})`;
   if (topic === "operation") {
     if (f.owner_weekly_hours.value !== null) out["점주 근무시간"] = `주 ${f.owner_weekly_hours.value}시간`;
     if (f.staff_count.value !== null) out["직원 수"] = `${f.staff_count.value}명`;
@@ -365,9 +373,13 @@ export async function rerunTask(user: CurrentUser, taskId: string) {
   );
 }
 
-// 양도인이 열람 요청을 승인·거절했을 때: 그 양수인·매물의 승인 대기 질문을 다시 처리한다
+// 양도인이 열람 요청을 승인·거절·회수했을 때: 그 양수인·매물의 질문을 지금 권한으로 다시 처리한다
 export async function onGrantDecided(grant: { listing_id: string; buyer_id: string; status: string }) {
   const supabase = getSupabase();
+  if (grant.status === "revoked") {
+    await reanswerAfterAccessLoss(grant.listing_id, grant.buyer_id);
+    return;
+  }
   const { data, error } = await supabase
     .from("agent_messages")
     .select("id")
@@ -385,4 +397,17 @@ export async function onGrantDecided(grant: { listing_id: string; buyer_id: stri
         .eq("id", m.id);
     }
   }
+}
+
+// 권한이 줄었을 때(승인 회수, NDA 철회): 이미 받은 답도 지금 권한으로 다시 계산해서,
+// 더 볼 수 없는 숫자가 답·근거에 남지 않게 한다
+export async function reanswerAfterAccessLoss(listingId: string, buyerId: string) {
+  const { data, error } = await getSupabase()
+    .from("agent_messages")
+    .select("id")
+    .eq("listing_id", listingId)
+    .eq("buyer_id", buyerId)
+    .eq("answer_type", "auto");
+  if (error) throw error;
+  for (const m of data ?? []) await answerQuestion(m.id);
 }

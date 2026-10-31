@@ -1,12 +1,15 @@
 // POST: NDA 테스트 동의 / 철회 (양수인). 실제 전자서명이 아니라 "테스트 동의(법적 효력 없음)" 기록이다.
 
 import { NextResponse } from "next/server";
+import { reanswerAfterAccessLoss } from "@/lib/agents";
 import { audit } from "@/lib/audit";
 import { getUser } from "@/lib/auth";
 import { handleError, HttpError } from "@/lib/http";
 import { getListing } from "@/lib/listings";
 import { NDA_VERSION } from "@/lib/nda";
 import { getSupabase } from "@/lib/supabase";
+
+export const maxDuration = 120; // 철회 뒤 AI 답을 다시 계산한다
 
 export async function POST(request: Request, ctx: RouteContext<"/api/listings/[id]/nda">) {
   try {
@@ -29,6 +32,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/listings/[i
       .single();
     if (error) throw error;
     await audit(user.id, body.agree ? "nda_agree" : "nda_revoke", id, `NDA ${NDA_VERSION} (테스트 동의, 법적 효력 없음)`);
+    if (!body.agree) await reanswerAfterAccessLoss(id, user.id);
     return NextResponse.json({ nda: data });
   } catch (e) {
     return handleError(e);
