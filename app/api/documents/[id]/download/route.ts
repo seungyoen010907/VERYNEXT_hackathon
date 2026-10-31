@@ -5,7 +5,7 @@ import { canSee, loadAccess } from "@/lib/access";
 import { audit } from "@/lib/audit";
 import { getUser } from "@/lib/auth";
 import { handleError, HttpError } from "@/lib/http";
-import { getListing } from "@/lib/listings";
+import { getListing, isVirtual } from "@/lib/listings";
 import { BUCKET, getSupabase } from "@/lib/supabase";
 
 export async function GET(request: Request, ctx: RouteContext<"/api/documents/[id]/download">) {
@@ -16,7 +16,7 @@ export async function GET(request: Request, ctx: RouteContext<"/api/documents/[i
     const supabase = getSupabase();
     const { data: doc, error } = await supabase.from("documents").select("deal_id, storage_path, access_level, file_name, kind").eq("id", id).maybeSingle();
     if (error) throw error;
-    if (!doc || doc.kind === "report") throw new HttpError(404, "자료를 찾을 수 없어요.");
+    if (!doc || isVirtual(doc.kind)) throw new HttpError(404, "자료를 찾을 수 없어요.");
 
     const listing = await getListing(doc.deal_id);
     const access = await loadAccess(user, listing);

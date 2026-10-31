@@ -260,3 +260,13 @@ grant select, insert, update, delete on
 alter table public.checklist_items add column if not exists buyer_id uuid references public.users(id) on delete cascade;
 create unique index if not exists checklist_items_room_key_idx on public.checklist_items (deal_id, buyer_id, key);
 create index if not exists messages_room_idx on public.messages (deal_id, buyer_id, created_at);
+
+-- =====================================================================
+-- F08 수익성·권리금 분석 (docs/API.md 11번): 양도인 입력값
+-- 비용·시설 입력은 파일 없는 데이터룸 항목(documents.kind = 'input')에 data_points로 붙인다.
+-- =====================================================================
+alter table public.deals add column if not exists maintenance_fee            bigint;
+alter table public.deals add column if not exists lease_remaining_months     int;
+alter table public.deals add column if not exists claimed_monthly_cash_sales bigint;
+alter table public.data_points add column if not exists meta jsonb;
+notify pgrst, 'reload schema';

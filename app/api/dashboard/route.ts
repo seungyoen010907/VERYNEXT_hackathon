@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import { getUser } from "@/lib/auth";
 import { handleError } from "@/lib/http";
+import { VIRTUAL_KINDS_FILTER } from "@/lib/listings";
 import { getSupabase } from "@/lib/supabase";
 import { getBuyerProfile } from "@/lib/visible";
 
@@ -17,7 +18,7 @@ export async function GET(request: Request) {
       const ids = (listings ?? []).map((l) => l.id);
       const [docs, grants, questions] = ids.length
         ? await Promise.all([
-            supabase.from("documents").select("deal_id, verification_status, kind").in("deal_id", ids).neq("kind", "report"),
+            supabase.from("documents").select("deal_id, verification_status, kind").in("deal_id", ids).not("kind", "in", VIRTUAL_KINDS_FILTER),
             supabase.from("access_grants").select("listing_id, status").in("listing_id", ids),
             supabase.from("agent_messages").select("listing_id, status").in("listing_id", ids),
           ])

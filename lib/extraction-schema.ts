@@ -40,6 +40,8 @@ export const extractionSchema = {
               "delivery_app",
               "vat_return",
               "bank_statement",
+              "cash_receipt",
+              "claimed_sales",
               "cost_statement",
               "lease_contract",
               "operation",

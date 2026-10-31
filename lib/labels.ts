@@ -31,7 +31,9 @@ export const DOC_TYPE_LABEL: Record<DocType, string> = {
   pos: "POS",
   delivery_app: "배달앱 정산",
   vat_return: "부가세 신고",
-  bank_statement: "통장 내역",
+  bank_statement: "사업용 계좌 거래내역",
+  cash_receipt: "현금영수증·현금매출",
+  claimed_sales: "양도인 주장 월별 매출표",
   cost_statement: "비용 내역",
   lease_contract: "임대차계약서",
   operation: "운영 현황",
@@ -63,7 +65,16 @@ const OTHER_KEY_LABEL: Record<string, string> = {
   "operation.owner_weekly_hours": "점주 주당 근무시간",
   "operation.staff_count": "직원 수",
   "facility.item": "넘겨받는 시설",
+  "input.cost": "월 비용 (양도인 입력)",
+  "input.labor": "인력 구성 (양도인 입력)",
+  "input.facility": "시설 (양도인 입력)",
 };
+
+// 양도인 입력 행은 같은 key가 여러 줄이라 이름(source_note)까지 붙인다
+export function pointLabel(p: Pick<DataPoint, "key" | "source_note">): string {
+  const base = dataPointLabel(p.key);
+  return p.key === "input.cost" || p.key === "input.facility" ? `${base} · ${p.source_note ?? ""}` : base;
+}
 
 // "card_sales.gross_sales" -> "카드매출 월 매출"
 export function dataPointLabel(key: string): string {
@@ -75,7 +86,12 @@ export function dataPointLabel(key: string): string {
 }
 
 // 값 표시: 원·시간·명·연월
-export function formatPointValue(p: Pick<DataPoint, "value" | "unit" | "period" | "key" | "source_note">): string {
+export function formatPointValue(p: Pick<DataPoint, "value" | "unit" | "period" | "key" | "source_note" | "meta">): string {
+  if (p.key === "input.labor") {
+    const m = (p.meta ?? {}) as { family?: number; staff?: number };
+    return !m.family && !m.staff ? "점주 혼자" : `가족·동업자 ${m.family ?? 0}명, 고용 직원 ${m.staff ?? 0}명`;
+  }
+  if (p.key === "input.facility" && p.value === null) return "반영 가격 미입력";
   if (p.unit === "month") return p.period ?? "미확인";
   if (p.unit === "item") return p.source_note?.replace(/ \(.*\)$/, "") ?? "-";
   if (p.value === null) return "미확인";

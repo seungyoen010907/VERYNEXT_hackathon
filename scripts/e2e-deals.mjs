@@ -7,7 +7,8 @@ const BUYER = "00000000-0000-0000-0000-0000000000b1";
 
 let pass = 0, fail = 0;
 function check(name, ok, detail = "") {
-  ok ? pass++ : fail++;
+  if (ok) pass++;
+  else fail++;
   console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? `  (${detail})` : ""}`);
 }
 async function api(user, path, init = {}) {

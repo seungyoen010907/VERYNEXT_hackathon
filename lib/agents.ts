@@ -12,7 +12,7 @@ import type { CurrentUser } from "./auth";
 import { computeFacts, type BuyerProfile } from "./facts";
 import { won } from "./format";
 import { HttpError } from "./http";
-import { dataPointLabel, formatPointValue, TRUST_LABEL } from "./labels";
+import { formatPointValue, pointLabel, TRUST_LABEL } from "./labels";
 import { getListing } from "./listings";
 import { answerAsSeller, generateQuestions } from "./openai";
 import { getSupabase } from "./supabase";
@@ -24,10 +24,10 @@ export type Topic = (typeof TOPICS)[number];
 
 const TOPIC_MATCH: Record<Topic, (key: string) => boolean> = {
   sales: (k) => /^(card_sales|delivery_app|pos|vat_return)\./.test(k),
-  cost: (k) => k.startsWith("cost."),
+  cost: (k) => k.startsWith("cost.") || k === "input.cost" || k === "input.labor",
   operation: (k) => k.startsWith("operation."),
   lease: (k) => k.startsWith("lease."),
-  facility: (k) => k === "facility.item",
+  facility: (k) => k === "facility.item" || k === "input.facility",
 };
 
 const TEMPLATE_QUESTION: Record<Topic, string> = {
@@ -163,7 +163,7 @@ export async function answerQuestion(messageId: string): Promise<AgentMessage> {
       const docName = new Map(visible.files.map((d) => [d.id, d.file_name]));
       // 화면에 붙일 근거: 허용된 값 전부 (최대 60개)
       const evidence: Evidence[] = allowed.slice(0, 60).map((p) => ({
-        item: dataPointLabel(p.key),
+        item: pointLabel(p),
         period: p.period,
         value: formatPointValue(p),
         trust: TRUST_LABEL[p.trust_level],
@@ -282,7 +282,7 @@ async function restrictedAnswer(
 function groupEvidence(evidence: Evidence[], points: DataPoint[]) {
   const groups = new Map<string, { item: string; periods: string[]; values: number[]; text: string[]; trust: string; source: string }>();
   points.forEach((p, i) => {
-    const e = evidence[i] ?? { item: dataPointLabel(p.key), value: formatPointValue(p), trust: TRUST_LABEL[p.trust_level], source: p.source_note ?? "자료", period: p.period };
+    const e = evidence[i] ?? { item: pointLabel(p), value: formatPointValue(p), trust: TRUST_LABEL[p.trust_level], source: p.source_note ?? "자료", period: p.period };
     const key = `${e.item}|${e.source}`;
     const g = groups.get(key) ?? { item: e.item, periods: [], values: [], text: [], trust: e.trust, source: e.source };
     if (p.period) g.periods.push(p.period);

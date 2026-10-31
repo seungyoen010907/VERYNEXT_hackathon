@@ -4,7 +4,7 @@
 import { NextResponse } from "next/server";
 import { getUser } from "@/lib/auth";
 import { handleError, HttpError } from "@/lib/http";
-import { assertOwner, ensureReportDocument, getListing } from "@/lib/listings";
+import { assertOwner, ensureReportDocument, getListing, VIRTUAL_KINDS_FILTER } from "@/lib/listings";
 import { summarizeReport } from "@/lib/openai";
 import { getSupabase } from "@/lib/supabase";
 import type { ExtractedDocument, Report, Summary } from "@/lib/types";
@@ -20,7 +20,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/listings/[i
     assertOwner(user, listing);
 
     const supabase = getSupabase();
-    const { data: docs, error } = await supabase.from("documents").select("extraction").eq("deal_id", id).neq("kind", "report").not("extraction", "is", null);
+    const { data: docs, error } = await supabase.from("documents").select("extraction").eq("deal_id", id).not("kind", "in", VIRTUAL_KINDS_FILTER).not("extraction", "is", null);
     if (error) throw error;
     const documents = (docs ?? []).map((d) => d.extraction as ExtractedDocument);
     if (documents.length === 0) throw new HttpError(400, "분석이 끝난 자료가 없어요. 매출 자료를 먼저 올려주세요.");

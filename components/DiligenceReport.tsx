@@ -5,12 +5,13 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import AcquisitionAnalysis from "@/components/AcquisitionAnalysis";
 import ReportView from "@/components/ReportView";
 import { useUser } from "@/components/RoleSwitch";
 import Tag from "@/components/Tag";
 import { apiFetch } from "@/lib/api-client";
 import type { Comparison } from "@/lib/compare";
-import { paybackScenarios, type Fact, type FactTrust } from "@/lib/facts";
+import { analysisBase, paybackScenarios, type Fact, type FactTrust } from "@/lib/facts";
 import { won } from "@/lib/format";
 import { TRUST_LABEL } from "@/lib/labels";
 import type { CostCategory, DataRoom } from "@/lib/types";
@@ -52,6 +53,8 @@ export default function DiligenceReport({ id }: { id: string }) {
           {user.name}가 지금 볼 수 있는 자료(숫자 {f.visible_points}개)로 만든 리포트예요. NDA·열람 승인을 더 받으면 바뀔 수 있어요.
         </p>
       </div>
+
+      <AcquisitionAnalysis key={`${user.id}:${id}`} base={analysisBase(f, fit, cmp.profile)} evidence={f.evidence} risks={row.risks} />
 
       <Box title="투자금 구성">
         <Grid>

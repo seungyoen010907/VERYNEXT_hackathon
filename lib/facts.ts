@@ -2,8 +2,10 @@
 // 추천(Step 4), 에이전트 질문 만들기(Step 5), 비교표·리포트(Step 6)가 모두 이 함수를 쓴다.
 // 값이 없으면 null(화면에 "미확인"). 서로 다른 기준의 매출은 섞지 않는다.
 
+import { facilityResult, premiumParts, salesEvidence, type AnalysisBase, type CostLine, type FacilityResult, type PremiumParts, type SalesEvidence } from "./analysis";
+import { DOC_COST_KIND } from "./costs";
 import { won } from "./format";
-import type { CostCategory, DataPoint, Grade, Report, TrustLevel } from "./types";
+import type { CostCategory, CostInput, CostKind, DataPoint, FacilityInput, Grade, LaborInput, PremiumBreakdown, Report, TrustLevel } from "./types";
 
 export type FactTrust = TrustLevel | "computed" | "listing";
 
@@ -33,6 +35,10 @@ export type ListingBasics = {
   deposit: number;
   monthly_rent: number;
   is_sample: boolean;
+  premium_breakdown: PremiumBreakdown | null;
+  maintenance_fee: number | null; // 양도인 입력 (L0)
+  lease_remaining_months: number | null; // 양도인 입력 (L0)
+  claimed_monthly_cash_sales: number | null; // 검증 리포트를 볼 수 있을 때만 채운다
 };
 
 export type ListingFacts = {
@@ -53,6 +59,14 @@ export type ListingFacts = {
   claimed_gap: Fact; // 양도인 주장 월매출 대비 검증 매출 차이(%) — 리포트를 볼 수 있을 때만
   report_warnings: string[];
   visible_points: number;
+  // F08
+  cost_lines: CostLine[]; // 변동비/고정비 분류가 붙은 월 비용 (입력이 있으면 입력, 없으면 파일 자료)
+  cost_source: "input" | "document" | null;
+  labor: LaborInput | null;
+  facilities: FacilityInput[];
+  facility: FacilityResult;
+  premium_parts: PremiumParts;
+  evidence: SalesEvidence;
 };
 
 export const MIN_WAGE_2026 = 10_320; // 2026년 최저시급 (원) — 추가 인건비 계산 가정
@@ -124,27 +138,48 @@ export function computeFacts(
         }
       : unknown("월별 매출이 3개월 이상 있어야 계산해요");
 
-  // 비용: 항목별 월평균. 비용 자료에 임차료가 없으면 매물의 월세(공개 정보)를 더한다.
+  // 비용: 양도인이 직접 입력한 월 비용이 있으면 그것을, 없으면 파일에서 읽은 항목별 월평균을 쓴다 (둘을 더하지 않는다).
+  // 비용에 임차료가 없으면 매물의 월세(공개 정보)를, 관리비를 알면 관리비를 고정비로 더한다.
   const costPoints = points.filter((p) => p.key.startsWith("cost."));
+  const inputCosts = points.filter((p) => p.key === "input.cost" && p.value !== null);
   const breakdown: Partial<Record<CostCategory, number>> = {};
   for (const cat of ["ingredients", "labor", "utilities", "rent", "fees", "other"] as CostCategory[]) {
     const s = seriesByMonth(points, `cost.${cat}`);
     if (s.size > 0) breakdown[cat] = Math.round(avg([...s.values()]));
   }
   const maintenance = points.find((p) => p.key === "lease.maintenance_fee" && p.value !== null);
+  const maintenanceValue = maintenance ? Number(maintenance.value) : listing.maintenance_fee;
+  const maintenanceNote = maintenance ? "임대차계약서" : "양도인 입력";
+  const lines: CostLine[] = [];
+  let costSource: ListingFacts["cost_source"] = null;
+  if (inputCosts.length > 0) {
+    costSource = "input";
+    for (const p of inputCosts) {
+      const m = (p.meta ?? {}) as Partial<CostInput>;
+      lines.push({ name: p.source_note ?? "비용", amount: Number(p.value), kind: (m.kind ?? "unknown") as CostKind, source: "input", note: m.kind_source === "user" ? "양도인 입력 · 분류 직접 지정" : "양도인 입력 · 이름으로 자동 분류" });
+    }
+  } else if (costPoints.length > 0) {
+    costSource = "document";
+    for (const [cat, v] of Object.entries(breakdown) as [CostCategory, number][]) {
+      lines.push({ name: COST_NAME[cat], amount: v, kind: DOC_COST_KIND[cat], source: "document", note: "비용 내역 월평균" });
+    }
+  }
+  if (costSource) {
+    const hasRent = costSource === "document" ? breakdown.rent !== undefined : lines.some((l) => /월세|임차/.test(l.name));
+    if (!hasRent) lines.push({ name: "월세", amount: listing.monthly_rent, kind: "fixed", source: "listing", note: "매물 정보" });
+    if (maintenanceValue !== null && maintenanceValue > 0 && !lines.some((l) => /관리비/.test(l.name))) {
+      lines.push({ name: "관리비", amount: maintenanceValue, kind: "fixed", source: "listing", note: maintenanceNote });
+    }
+  }
   let cost: Fact = unknown("볼 수 있는 비용 자료가 없어요");
-  if (costPoints.length > 0) {
-    let total = Object.values(breakdown).reduce((a, b) => a + (b ?? 0), 0);
-    const notes = ["비용 내역 월평균"];
-    if (breakdown.rent === undefined) {
-      total += listing.monthly_rent;
-      notes.push(`월세 ${won(listing.monthly_rent)}(매물 정보)`);
-    }
-    if (maintenance) {
-      total += Number(maintenance.value);
-      notes.push(`관리비 ${won(Number(maintenance.value))}(임대차계약서)`);
-    }
-    cost = { value: Math.round(total), basis: notes.join(" + "), trust: weakestTrust(costPoints) };
+  if (costSource) {
+    const total = lines.reduce((a, l) => a + l.amount, 0);
+    const extras = lines.filter((l) => l.source === "listing").map((l) => `${l.name} ${won(l.amount)}(${l.note})`);
+    cost = {
+      value: Math.round(total),
+      basis: [costSource === "input" ? `양도인 입력 월 비용 ${inputCosts.length}개 항목` : "비용 내역 월평균", ...extras].join(" + "),
+      trust: costSource === "input" ? "owner_stated" : weakestTrust(costPoints),
+    };
   }
 
   const profit: Fact =
@@ -160,9 +195,21 @@ export function computeFacts(
   const leaseEnd: Fact<string> = leaseEndPoint
     ? { value: leaseEndPoint.period, basis: leaseEndPoint.source_note ?? "임대차계약서", trust: leaseEndPoint.trust_level }
     : unknown<string>("임대차계약서를 볼 수 없어요");
+  // 임대차계약서가 우선, 없으면 양도인이 입력한 잔여기간
   const remaining: Fact = leaseEnd.value
     ? { value: monthsBetween(thisMonth, leaseEnd.value), basis: `계약 만료 ${leaseEnd.value} − 이번 달 ${thisMonth}`, trust: "computed" }
-    : unknown("임대차 만료일을 알 수 없어요");
+    : listing.lease_remaining_months !== null
+      ? { value: listing.lease_remaining_months, basis: "양도인 입력 (임대차계약서 미확인)", trust: "owner_stated" }
+      : unknown("임대차 만료일을 알 수 없어요");
+
+  // 양도인 입력: 인력 구성, 시설 목록
+  const laborPoint = points.find((p) => p.key === "input.labor");
+  const labor = laborPoint ? ({ family: 0, staff: 0, ...(laborPoint.meta ?? {}) } as LaborInput) : null;
+  const facilities: FacilityInput[] = points
+    .filter((p) => p.key === "input.facility")
+    .map((p) => ({ ...(p.meta as Omit<FacilityInput, "name" | "claimed_value">), name: p.source_note ?? "시설", claimed_value: p.value === null ? null : Number(p.value) }));
+  const parts = premiumParts(listing.premium, listing.premium_breakdown);
+  const hasCashEvidence = points.some((p) => /^(cash_receipt|bank_statement)\./.test(p.key));
 
   const gap = report?.claimed_vs_actual;
   return {
@@ -175,10 +222,16 @@ export function computeFacts(
     confirmed_profit: profit,
     owner_weekly_hours: pointFact("operation.owner_weekly_hours", "운영 현황"),
     staff_count: pointFact("operation.staff_count", "운영 현황"),
-    maintenance_fee: pointFact("lease.maintenance_fee", "임대차계약서"),
+    maintenance_fee:
+      maintenanceValue !== null
+        ? { value: maintenanceValue, basis: maintenanceNote, trust: maintenance ? maintenance.trust_level : "owner_stated" }
+        : unknown("관리비 정보가 없어요"),
     lease_end: leaseEnd,
     lease_remaining_months: remaining,
-    facility_items: points.filter((p) => p.key === "facility.item").map((p) => (p.source_note ?? "").replace(/ \(.*\)$/, "")),
+    facility_items: [
+      ...points.filter((p) => p.key === "facility.item").map((p) => (p.source_note ?? "").replace(/ \(.*\)$/, "")),
+      ...facilities.map((f) => f.name),
+    ],
     report_grade: report ? { value: report.grade, basis: "AI 교차 검증 리포트 (코드 계산 등급)", trust: "computed" } : unknown<Grade>("검증 리포트를 볼 수 없어요"),
     claimed_gap:
       gap && gap.diff_rate !== null
@@ -186,8 +239,17 @@ export function computeFacts(
         : unknown("검증 리포트를 볼 수 없어요"),
     report_warnings: report ? report.checks.filter((c) => c.level !== "ok").map((c) => `${c.title} — ${c.detail}`) : [],
     visible_points: points.length,
+    cost_lines: lines,
+    cost_source: costSource,
+    labor,
+    facilities,
+    facility: facilityResult(facilities, parts.facility),
+    premium_parts: parts,
+    evidence: salesEvidence(report, listing.claimed_monthly_cash_sales, hasCashEvidence),
   };
 }
+
+const COST_NAME: Record<CostCategory, string> = { ingredients: "재료비", labor: "인건비", utilities: "공과금", rent: "임차료", fees: "수수료", other: "기타 비용" };
 
 // ---- 양수인 맞춤 계산 ----
 
@@ -312,6 +374,27 @@ export function findRisks(f: ListingFacts, fit: PersonalFit, p: BuyerProfile | n
   if (fit.meets_target === false) {
     risks.push({ severity: 2, title: "예상 순수익이 목표보다 적어요", evidence: fit.expected_profit.basis, impact: `목표 ${won(p?.target_monthly_profit)}에 못 미쳐요`, how_to_check: "비용 절감 여지(인건비·재료비)를 확인해요" });
   }
+  // F08: 매출 증빙·비용 분류·시설권리금
+  for (const w of f.evidence.warnings.filter((w) => w.startsWith("현금매출"))) {
+    risks.push({ severity: 2, title: "현금매출 증빙 부족", evidence: w, impact: "주장 매출 중 현금 부분은 확인되지 않은 금액이에요", how_to_check: "현금영수증 발행 내역이나 사업용 계좌 입금 내역을 요청해요" });
+  }
+  if (f.evidence.level === "low") {
+    risks.push({ severity: 3, title: `매출 증빙 수준이 낮아요 (증빙률 ${Math.round((f.evidence.rate ?? 0) * 1000) / 10}%)`, evidence: f.evidence.basis, impact: `주장 매출 중 ${won(f.evidence.unverified)}이 자료로 확인되지 않았어요`, how_to_check: "부가세 신고서·POS 일별 매출 등 다른 자료를 요청해요" });
+  }
+  if (f.labor && f.labor.family > 0) {
+    risks.push({ severity: 2, title: "가족·동업자 인건비가 비용에 빠져 있을 수 있어요", evidence: `양도인 입력: 가족·동업자 ${f.labor.family}명`, impact: "양수인이 사람을 쓰면 그만큼 인건비가 늘어요", how_to_check: "가족·동업자의 근무 시간표를 받고, 아래 조정에서 대체 인건비를 넣어봐요" });
+  }
+  const unknownCost = f.cost_lines.filter((l) => l.kind === "unknown");
+  if (unknownCost.length > 0) {
+    risks.push({ severity: 1, title: "변동비·고정비 분류가 확인 필요인 비용이 있어요", evidence: unknownCost.map((l) => `${l.name} ${won(l.amount)}`).join(", "), impact: "손익분기점 계산에서 고정비로 가정했어요 (보수적)", how_to_check: "매출에 따라 바뀌는 비용인지 양도인에게 확인해요" });
+  }
+  if (f.facility.excess !== null && f.facility.excess > 0 && f.facility.rows.length > 0) {
+    risks.push({ severity: 2, title: `시설권리금 중 ${won(f.facility.excess)} 시세 초과 또는 근거 부족`, evidence: `시설권리금 ${won(f.facility.claimed)} vs 확인 가능한 시설 가치 ${won(f.facility.value)} (AI 추정 참고 범위)`, impact: "시설권리금이 실제 처분 가치보다 높게 잡혔을 수 있어요", how_to_check: "구매 영수증·모델명을 받고, 같은 모델의 중고 매물을 직접 찾아봐요" });
+  }
+  const leased = f.facility.rows.filter((r) => r.verdict === "excluded");
+  if (leased.length > 0) {
+    risks.push({ severity: 2, title: "렌탈·리스 시설이 시설 목록에 있어요", evidence: leased.map((r) => r.name).join(", "), impact: "양도인 자산이 아니라 넘겨받지 못하거나 남은 렌탈료를 떠안을 수 있어요", how_to_check: "렌탈·리스 계약서와 남은 기간·위약금을 확인해요" });
+  }
   if (f.monthly_cost_avg.value === null) {
     risks.push({ severity: 1, title: "비용 자료를 확인하지 못했어요", evidence: f.monthly_cost_avg.basis, impact: "실제 순수익을 알 수 없어요", how_to_check: "재료비·인건비·공과금 내역을 요청해요" });
   }
@@ -346,4 +429,21 @@ export function paybackScenarios(f: ListingFacts, fit: PersonalFit): Scenario[] 
       basis: `매출 ${won(sales)} × ${1 + d} − 비용 ${won(cost)}(재료비·수수료 ${Math.round(d * 100)}% 반영) − 추가 인건비 ${won(extra)} (AI 추정)`,
     };
   });
+}
+
+// ---- F08: 수익성·회수기간 계산의 출발점 (lib/analysis.ts computeAnalysis에 넣는다) ----
+
+export function analysisBase(f: ListingFacts, fit: PersonalFit, p: BuyerProfile | null): AnalysisBase {
+  const verified = f.evidence.verified;
+  return {
+    sales: verified ?? f.monthly_sales_avg.value,
+    sales_basis: verified !== null ? `교차 확인된 월매출 (${f.evidence.basis})` : f.monthly_sales_avg.value !== null ? `자료상 월평균 매출 — 교차 확인 전 (${f.monthly_sales_avg.basis})` : f.monthly_sales_avg.basis,
+    lines: f.cost_lines,
+    deposit: f.listing.deposit,
+    premium: f.premium_parts,
+    facility: f.facility,
+    owner_weekly_hours: f.owner_weekly_hours.value,
+    default_replacement_labor: fit.extra_labor_cost.value ?? 0,
+    target_payback: p?.payback_months ?? null,
+  };
 }

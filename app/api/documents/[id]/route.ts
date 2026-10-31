@@ -3,7 +3,7 @@
 import { NextResponse } from "next/server";
 import { audit } from "@/lib/audit";
 import { handleError, HttpError } from "@/lib/http";
-import { DOCUMENT_COLUMNS, getOwnedDocument } from "@/lib/listings";
+import { DOCUMENT_COLUMNS, getOwnedDocument, isVirtual } from "@/lib/listings";
 import { getSupabase } from "@/lib/supabase";
 import { ACCESS_LEVELS, DOC_CATEGORIES, type AccessLevel, type DocCategory } from "@/lib/types";
 
@@ -27,8 +27,8 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/documents/
       update.category = body.category;
     }
 
-    // AI 분석 결과(report)는 원본 파일이 없어서 두 등급을 같이 움직인다
-    if (doc.kind === "report" && update.summary_access_level) update.access_level = update.summary_access_level;
+    // 파일 없는 항목(AI 리포트, 양도인 입력)은 원본이 없어서 두 등급을 같이 움직인다
+    if (isVirtual(doc.kind) && update.summary_access_level) update.access_level = update.summary_access_level;
 
     const supabase = getSupabase();
     const { data, error } = await supabase.from("documents").update(update).eq("id", id).select(DOCUMENT_COLUMNS).single();

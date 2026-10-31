@@ -5,6 +5,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import InputsTab from "@/components/InputsTab";
 import ReportView from "@/components/ReportView";
 import { useUser } from "@/components/RoleSwitch";
 import Tag from "@/components/Tag";
@@ -24,7 +25,7 @@ import {
   type PublicListing,
 } from "@/lib/types";
 
-type TabKey = "info" | DocCategory | "ai" | "access";
+type TabKey = "info" | DocCategory | "inputs" | "ai" | "access";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "info", label: "기본정보" },
@@ -33,6 +34,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "contract", label: "계약" },
   { key: "facility", label: "시설" },
   { key: "other", label: "기타" },
+  { key: "inputs", label: "비용·시설 입력" },
   { key: "ai", label: "AI 분석" },
   { key: "access", label: "공개 관리" },
 ];
@@ -64,7 +66,7 @@ export default function DataRoomView({ id }: { id: string }) {
   const owner = room.is_owner;
   const listing = room.listing;
   const full = owner ? (listing as Listing) : null;
-  const tabs = owner ? TABS : TABS.filter((t) => t.key !== "access");
+  const tabs = owner ? TABS : TABS.filter((t) => t.key !== "access" && t.key !== "inputs");
 
   return (
     <div className="mx-auto max-w-6xl space-y-5">
@@ -82,7 +84,7 @@ export default function DataRoomView({ id }: { id: string }) {
             }
           >
             {t.label}
-            {t.key !== "info" && t.key !== "ai" && t.key !== "access" && (
+            {t.key !== "info" && t.key !== "ai" && t.key !== "access" && t.key !== "inputs" && (
               <span className="ml-1 opacity-70">{room.documents.filter((d) => d.category === t.key).length}</span>
             )}
           </button>
@@ -93,6 +95,7 @@ export default function DataRoomView({ id }: { id: string }) {
       {(tab === "sales" || tab === "cost" || tab === "contract" || tab === "facility" || tab === "other") && (
         <DocumentsTab room={room} category={tab} onChanged={load} />
       )}
+      {tab === "inputs" && full && <InputsTab listing={full} onChanged={load} />}
       {tab === "ai" && <AiTab room={room} onChanged={load} />}
       {tab === "access" && owner && <AccessTab room={room} onChanged={load} />}
     </div>

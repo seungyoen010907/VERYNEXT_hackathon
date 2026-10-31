@@ -34,6 +34,9 @@ const EMPTY: Form = {
   parking_store: "",
   claimed_monthly_sales: "",
   claimed_monthly_profit: "",
+  claimed_monthly_cash_sales: "",
+  maintenance_fee: "",
+  lease_remaining_months: "",
 };
 
 export default function NewListingPage() {
@@ -62,6 +65,9 @@ export default function NewListingPage() {
         deposit: form.deposit,
         monthly_rent: form.monthly_rent,
         premium: form.premium,
+        maintenance_fee: form.maintenance_fee,
+        lease_remaining_months: form.lease_remaining_months,
+        claimed_monthly_cash_sales: form.claimed_monthly_cash_sales,
         premium_breakdown: { business: form.pb_business, facility: form.pb_facility, floor: form.pb_floor, basis: form.pb_basis },
         is_franchise: form.franchise === "" ? null : form.franchise === "yes",
         floor: form.floor,
@@ -127,18 +133,24 @@ export default function NewListingPage() {
       <Fieldset title="금액">
         <Amount label="보증금 *" value={form.deposit} onChange={num("deposit")} placeholder="30000000" />
         <Amount label="월세 *" value={form.monthly_rent} onChange={num("monthly_rent")} placeholder="2500000" />
+        <Amount label="월 관리비" value={form.maintenance_fee} onChange={num("maintenance_fee")} placeholder="300000" />
+        <Field label="임대차 잔여기간 (개월)">
+          <input value={form.lease_remaining_months} onChange={num("lease_remaining_months")} inputMode="numeric" placeholder="14" className={INPUT} />
+        </Field>
         <Amount label="희망 권리금 *" value={form.premium} onChange={num("premium")} placeholder="60000000" />
         <Amount label="영업권리금" value={form.pb_business} onChange={num("pb_business")} />
         <Amount label="시설권리금" value={form.pb_facility} onChange={num("pb_facility")} />
         <Amount label="바닥권리금" value={form.pb_floor} onChange={num("pb_floor")} />
         <Field label="권리금 산정 근거" full>
           <textarea value={form.pb_basis} onChange={set("pb_basis")} maxLength={1000} rows={2} placeholder="예: 최근 6개월 순수익의 8개월분" className={INPUT} />
+          <span className="mt-1 block text-xs text-muted">나누지 않은 금액은 &quot;미분류 권리금&quot;으로 보여요. 월 비용과 시설 목록은 등록 뒤 데이터룸 &quot;비용·시설 입력&quot; 탭에서 넣어요.</span>
         </Field>
       </Fieldset>
 
       <Fieldset title="양도인이 말하는 수익 (자료로 검증해요)">
         <Amount label="월매출 *" value={form.claimed_monthly_sales} onChange={num("claimed_monthly_sales")} placeholder="35000000" />
         <Amount label="월 순수익" value={form.claimed_monthly_profit} onChange={num("claimed_monthly_profit")} placeholder="8000000" />
+        <Amount label="그중 월 현금매출" value={form.claimed_monthly_cash_sales} onChange={num("claimed_monthly_cash_sales")} placeholder="3000000" />
       </Fieldset>
 
       <Fieldset title="점포">

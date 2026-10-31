@@ -10,13 +10,24 @@ import Tag from "@/components/Tag";
 import { apiFetch } from "@/lib/api-client";
 import type { Comparison, ComparisonRow } from "@/lib/compare";
 import { useCompareIds } from "@/lib/compare-selection";
-import { SCORE_LABEL, type Fact, type FactTrust } from "@/lib/facts";
+import { computeAnalysis, defaultAdjust } from "@/lib/analysis";
+import { analysisBase, SCORE_LABEL, type BuyerProfile, type Fact, type FactTrust } from "@/lib/facts";
 import { won } from "@/lib/format";
 import { TRUST_LABEL } from "@/lib/labels";
 
 const TRUST_TEXT: Record<FactTrust, string> = { ...TRUST_LABEL, computed: "코드 계산", listing: "매물 정보" };
 
-type Line = { label: string; get: (r: ComparisonRow) => Fact<number | string> | { value: string; basis: string; trust: FactTrust }; fmt?: (v: number) => string };
+type Line = {
+  label: string;
+  get: (r: ComparisonRow, p: BuyerProfile | null) => Fact<number | string> | { value: string; basis: string; trust: FactTrust };
+  fmt?: (v: number) => string;
+};
+
+// F08: 양수인 기준 계산 (조정 없이 기본값). 계산식은 lib/analysis.ts
+function f08(r: ComparisonRow, p: BuyerProfile | null) {
+  return computeAnalysis(analysisBase(r.facts, r.fit, p), defaultAdjust(analysisBase(r.facts, r.fit, p)));
+}
+const computed = (value: number | null, basis: string): Fact => ({ value, basis, trust: "computed" });
 
 const OBJECTIVE: Line[] = [
   { label: "희망 권리금", get: (r) => ({ value: r.facts.listing.premium, basis: "매물 정보 (L0 공개)", trust: "listing" }) },
@@ -39,6 +50,17 @@ const PERSONAL: Line[] = [
   { label: "추가 인건비 (근무시간 차이)", get: (r) => r.fit.extra_labor_cost },
   { label: "내 조건 예상 월 순수익", get: (r) => r.fit.expected_profit },
   { label: "투자금 회수 기간", get: (r) => r.fit.payback_months, fmt: (v) => `${v}개월` },
+  {
+    label: "매출 증빙률",
+    get: (r) => ({ value: r.facts.evidence.rate === null ? null : Math.round(r.facts.evidence.rate * 1000) / 10, basis: r.facts.evidence.basis, trust: "computed" }),
+    fmt: (v) => `${v}%`,
+  },
+  { label: "양수인 기준 월순수익", get: (r, p) => computed(f08(r, p).net, "검증 기준 월매출 − 변동비 − 고정비(대체 인건비 포함)") },
+  { label: "마진율", get: (r, p) => computed(f08(r, p).margin === null ? null : Math.round(f08(r, p).margin! * 1000) / 10, "매출총이익 ÷ 검증 기준 월매출"), fmt: (v) => `${v}%` },
+  { label: "손익분기점 월매출", get: (r, p) => computed(f08(r, p).bep, "고정비 ÷ 마진율 (확인 필요 비용은 고정비로 가정)") },
+  { label: "회수기간 (바닥권리금 제외)", get: (r, p) => computed(f08(r, p).payback_excl_floor.months, f08(r, p).payback_excl_floor.basis), fmt: (v) => `${v}개월` },
+  { label: "회수기간 (바닥권리금 포함)", get: (r, p) => computed(f08(r, p).payback_incl_floor.months, f08(r, p).payback_incl_floor.basis), fmt: (v) => `${v}개월` },
+  { label: "시설권리금 초과·근거 부족", get: (r) => computed(r.facts.facility.rows.length ? r.facts.facility.excess : null, r.facts.facility.basis) },
 ];
 
 export default function CompareView({ idsParam }: { idsParam: string[] }) {
@@ -75,7 +97,7 @@ export default function CompareView({ idsParam }: { idsParam: string[] }) {
   const ranked = [...rows].sort((a, b) => b.recommendation.total - a.recommendation.total);
 
   function cell(r: ComparisonRow, line: Line) {
-    const f = line.get(r);
+    const f = line.get(r, data!.profile);
     const id = `${r.facts.listing.id}:${line.label}`;
     const text = f.value === null ? null : typeof f.value === "number" ? (line.fmt ?? won)(f.value) : f.value;
     return (

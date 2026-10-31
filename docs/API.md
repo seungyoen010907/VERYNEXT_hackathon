@@ -549,3 +549,50 @@ AI는 **두 번** 부른다. 숫자 비교·합계·등급은 AI가 아니라 �
 - 자료가 부족한 매물은 빼지 않고 "정보 부족"으로 표시한다.
 - 비교표 값이 없으면 0이 아니라 `null` → 화면에 "미확인". 기준이 다른 매출(승인액/정산액)은 합치지 않는다.
 - 투자금 회수기간 = 초기 투자금 ÷ 월 순수익 (확인된 값만으로 계산, 추정값이 섞이면 "AI 추정"으로 표시).
+
+## 11. F08 매출 증빙·수익성·권리금 회수 분석 (PRD F08)
+
+> 계산은 전부 코드가 한다. AI는 시설 중고 가치의 **참고 범위**만 추정한다 (`trust = ai_estimate`).
+
+### 11.1 저장
+
+| 어디 | 칸 | 공개 |
+|---|---|---|
+| `deals` | + `maintenance_fee` bigint, `lease_remaining_months` int (양도인 입력) | L0 (월세처럼 기본 정보) |
+| `deals` | + `claimed_monthly_cash_sales` bigint (주장 월 현금매출) | 검증 리포트를 볼 수 있을 때만 (주장 매출과 같이) |
+| `deals.premium_breakdown` | 기존. 영업 + 시설 + 바닥 ≠ 총액이면 차액을 "미분류 권리금"으로 계산 | L0 |
+| `documents` | 파일 없는 항목 `kind = 'input'`: "양도인 입력 · 월 비용"(`checklist_key = 'input_cost'`, category cost), "양도인 입력 · 시설 목록"(`input_facility`, category facility). 공개 등급은 원본·요약 같이 움직인다 (report와 같음), 기본 L1 | 그 등급 |
+| `data_points` | + `meta` jsonb. 입력 한 줄 = 한 행, `document_id` = 위 입력 항목, `trust_level = owner_stated` | 입력 항목 등급 |
+
+`data_points` 입력 행:
+- `input.cost`: value = 월 금액, source_note = 비용 이름, meta = `{ group: ingredients|labor|utilities|other, kind: variable|fixed|unknown, kind_source: auto|user }`
+- `input.labor`: value = null, meta = `{ family: 가족·동업자 수, staff: 고용 직원 수 }` (둘 다 0이면 혼자)
+- `input.facility`: value = 양도인 반영 가격, source_note = 시설명, meta = `{ brand_model, qty, purchase_year, purchase_price, condition, ownership: owned|rental|lease, is_interior, has_receipt, estimate: { low, high, basis } | null, estimate_key }`
+
+`kind = 'input'` 항목은 파일이 없으므로 다운로드·AI 판독·교차 검증·자료 개수에서 뺀다 (`lib/listings.ts` `VIRTUAL_KINDS`).
+
+### 11.2 엔드포인트
+
+| 메서드·경로 | 하는 일 | 권한 |
+|---|---|---|
+| PATCH `/api/listings/[id]` | 기존 + `maintenance_fee`, `lease_remaining_months`, `claimed_monthly_cash_sales` | 소유 양도인 |
+| GET `/api/listings/[id]/inputs` | 비용·인력·시설 입력값 + 입력 항목 공개 등급 | 소유 양도인 |
+| PUT `/api/listings/[id]/inputs` | `{ costs?, labor?, facilities? }` 보낸 묶음만 통째로 바꾼다. 분류 `auto`는 서버가 다시 분류. 시설은 내용이 바뀐 줄만 AI 추정 (`estimate_key`가 같으면 재사용, 실패하면 estimate = null) | 소유 양도인 |
+
+입력 항목의 공개 등급은 기존 PATCH `/api/documents/[id]`로 바꾼다.
+
+### 11.3 계산 (`lib/costs.ts`, `lib/analysis.ts` — 서버·브라우저 공용, `server-only` 아님)
+
+- `classifyCost(name)`: 이름의 단어로 분류. 변동비: 재료·식자재·원재료·포장·배달대행·수수료. 고정비: 인건비·급여·월세·임차·관리비·기장·세무·보안·인터넷·통신·보험·정수기·렌탈·리스·해충·방역. 확인 필요: 공과금·전기·가스·수도·광고, 그 밖 모든 이름. 확인 필요는 계산에서 고정비로 가정한다.
+- 파일에서 읽은 비용만 있을 때(입력 없음): 재료비·수수료 = 변동비, 인건비·임차료 = 고정비, 공과금·기타 = 확인 필요(고정비 가정). 입력이 있으면 입력을 쓴다 (둘을 더하지 않는다). 월세·관리비는 비용 항목에 임차료가 없을 때 매물 정보 값을 고정비에 더한다.
+- 매출 증빙(`evidence`): PRD F08. 교차 확인 달 = 리포트 `monthly`에서 POS가 있고 `level = ok`인 달 + (부가세 비교가 ok이면) 부가세 기간 안의 카드 자료 달. 주장 매출은 리포트 `claimed_vs_actual.claimed_monthly_sales`.
+- `computeAnalysis(input, adjust)`: 조정값 `{ premium, sales_change, owner_operates, replacement_labor, extra_capex, target_payback }`를 받아 매출총이익·마진율·월순수익·총 투입자금·월수익률·손익분기점·여유·회수기간 3종·목표 대비 개월을 돌려준다. 매출이 바뀌면 변동비는 같은 비율로, 고정비는 그대로.
+- 대체 인건비 기본값: 직접 운영이면 기존 추가 인건비 계산(점주 근무시간 − 내 근무시간, 최저시급), 직접 운영하지 않으면 점주 주 근무시간 × 4.345주 × 최저시급. 가족·동업자가 있으면 "가족·동업자 인건비가 비용에 빠져 있을 수 있어요" 위험을 띄운다.
+- 시설: PRD F08 판정. 확인 가능한 시설 가치 = 소유·비인테리어 시설의 `estimate.low × 수량` 합. 시설 입력이 없으면 0으로 두고 "시설 가치 미확인"이라고 적는다.
+
+### 11.4 AI 시설 가치 추정 (`estimateFacilities`, `lib/openai.ts`)
+
+- 입력: 시설명, 브랜드·모델, 구매 연도, 구매가, 상태, 수량 (가격·매출 등 다른 자료는 넣지 않는다)
+- 출력(strict): `items[{ index, low, high, basis }]`, 1개당 원 단위 중고 처분 가능 가치 범위. 모르면 low/high를 null.
+- 지시: "실제 시세 조회가 아니라 일반적인 감가 기준의 추정이다. 호가일 수 있다. 근거(감가 가정)를 한 문장으로."
+- 샘플 매물의 추정 결과는 `samples/facility-estimates.json`에 저장해 재사용한다.

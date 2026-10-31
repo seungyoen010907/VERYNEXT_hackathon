@@ -56,7 +56,7 @@ export type ChecklistItem = {
   auto?: boolean; // 데이터룸 자료로 서버가 저절로 체크하는 항목 (직접 못 바꾼다)
 };
 
-export type DocumentKind = "pdf" | "image" | "spreadsheet" | "csv" | "report"; // report = AI 분석 결과(파일 없음)
+export type DocumentKind = "pdf" | "image" | "spreadsheet" | "csv" | "report" | "input"; // report = AI 분석 결과, input = 양도인 직접 입력 (둘 다 파일 없음)
 
 // documents 테이블 (화면에 필요한 칸만)
 export type DealDocument = {
@@ -103,6 +103,8 @@ export type DocType =
   | "delivery_app"
   | "vat_return"
   | "bank_statement"
+  | "cash_receipt"
+  | "claimed_sales"
   | "cost_statement"
   | "lease_contract"
   | "operation"
@@ -253,6 +255,9 @@ export type Listing = Deal & {
   parking: Parking | null;
   status: ListingStatus;
   is_sample: boolean;
+  maintenance_fee: number | null;
+  lease_remaining_months: number | null;
+  claimed_monthly_cash_sales: number | null; // 검증 리포트를 볼 수 있을 때만 양수인에게 쓴다
 };
 
 // 양수인(다른 사람)에게 보이는 매물: L0 항목만
@@ -269,6 +274,9 @@ export type PublicListing = {
   themes: string[];
   status: ListingStatus;
   is_sample: boolean;
+  premium_breakdown: PremiumBreakdown | null;
+  maintenance_fee: number | null;
+  lease_remaining_months: number | null;
 };
 
 export type VerificationStatus = "submitted" | "analyzed" | "ai_failed";
@@ -281,6 +289,7 @@ export type ListingDocument = {
   kind: DocumentKind;
   size: number;
   category: DocCategory;
+  checklist_key: string; // 파일 없는 양도인 입력 항목은 input_cost / input_facility
   access_level: AccessLevel; // 원본 파일
   summary_access_level: AccessLevel; // 추출 요약
   extraction: ExtractedDocument | null;
@@ -297,6 +306,7 @@ export type DataPoint = {
   trust_level: TrustLevel;
   access_level: AccessLevel;
   source_note: string | null;
+  meta?: Record<string, unknown> | null; // 양도인 입력 행의 분류·시설 정보 (docs/API.md 11.1)
 };
 
 export type GrantStatus = "requested" | "approved" | "rejected" | "revoked";
@@ -326,7 +336,51 @@ export type DataRoom = {
   data_points: DataPoint[];
   report: { id: string; created_at: string; grade: Grade; result: Report } | null;
   report_access: { document_id: string; level: AccessLevel } | null; // 양도인에게만
+  input_access: { document_id: string; key: InputKey; level: AccessLevel }[]; // 양도인에게만 (월 비용, 시설 목록)
   nda: NdaStatus | null; // 보는 사람(양수인)의 NDA
   locked: LockedItem[];
   pending_requests: number; // 양도인에게만
+};
+
+// ---- F08: 양도인 직접 입력 (docs/API.md 11.1) ----
+
+export type InputKey = "input_cost" | "input_facility";
+
+export type CostGroup = "ingredients" | "labor" | "utilities" | "other";
+export type CostKind = "variable" | "fixed" | "unknown"; // unknown = 확인 필요 (계산에서는 고정비로 가정)
+
+export type CostInput = {
+  name: string;
+  amount: number; // 월 금액 (원)
+  group: CostGroup;
+  kind: CostKind;
+  kind_source: "auto" | "user"; // auto면 서버가 이름으로 다시 분류한다
+};
+
+export type LaborInput = { family: number; staff: number }; // 둘 다 0이면 점주 혼자
+
+export type FacilityOwnership = "owned" | "rental" | "lease";
+
+export type FacilityEstimate = { low: number | null; high: number | null; basis: string }; // 1개당 원 단위, AI 추정
+
+export type FacilityInput = {
+  name: string;
+  brand_model: string | null;
+  qty: number;
+  purchase_year: number | null;
+  purchase_price: number | null;
+  condition: string | null;
+  ownership: FacilityOwnership;
+  is_interior: boolean;
+  has_receipt: boolean;
+  claimed_value: number | null; // 양도인이 시설권리금에 반영한 가격 (전체 수량)
+  estimate?: FacilityEstimate | null; // 서버가 채운다
+  estimate_key?: string; // 추정에 쓴 값. 같으면 추정을 재사용하고, 비어 있으면 다음 저장 때 다시 추정한다
+};
+
+export type ListingInputs = {
+  costs: CostInput[];
+  labor: LaborInput | null;
+  facilities: FacilityInput[];
+  levels: Partial<Record<InputKey, { document_id: string; level: AccessLevel }>>;
 };

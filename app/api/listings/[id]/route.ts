@@ -6,9 +6,9 @@ import { audit } from "@/lib/audit";
 import { getUser } from "@/lib/auth";
 import { handleError, HttpError } from "@/lib/http";
 import { CATEGORY_LABEL, DOC_TYPE_LABEL } from "@/lib/labels";
-import { assertOwner, getListing, parseListingInput, toPublicListing } from "@/lib/listings";
+import { assertOwner, getListing, isVirtual, parseListingInput, toPublicListing } from "@/lib/listings";
 import { getSupabase } from "@/lib/supabase";
-import type { DataRoom, GrantStatus, LockedItem, NdaStatus } from "@/lib/types";
+import type { DataRoom, GrantStatus, InputKey, LockedItem, NdaStatus } from "@/lib/types";
 import { loadVisibleData, type DocRow } from "@/lib/visible";
 
 export async function GET(request: Request, ctx: RouteContext<"/api/listings/[id]">) {
@@ -16,7 +16,7 @@ export async function GET(request: Request, ctx: RouteContext<"/api/listings/[id
     const user = await getUser(request);
     const { id } = await ctx.params;
     const listing = await getListing(id);
-    const { access, files, reportDoc, documents, data_points, report } = await loadVisibleData(user, listing);
+    const { access, files, reportDoc, inputDocs, documents, data_points, report } = await loadVisibleData(user, listing);
     if (!access.isOwner && listing.status !== "published") throw new HttpError(404, "매물을 찾을 수 없어요.");
 
     const supabase = getSupabase();
@@ -36,13 +36,13 @@ export async function GET(request: Request, ctx: RouteContext<"/api/listings/[id
       const requestStatus = new Map(
         ((grants.data ?? []) as { target_type: string; target_id: string; status: GrantStatus }[]).map((g) => [`${g.target_type}:${g.target_id}`, g.status]),
       );
-      const items = reportDoc ? [...files, reportDoc] : files;
+      const items = [...files, ...(reportDoc ? [reportDoc] : []), ...inputDocs];
       for (const d of items) {
-        const label = d.kind === "report" ? "AI 교차 검증 리포트" : `${CATEGORY_LABEL[d.category]} · ${d.extraction ? DOC_TYPE_LABEL[d.extraction.doc_type] : "자료"}`;
+        const label = isVirtual(d.kind) ? d.file_name : `${CATEGORY_LABEL[d.category]} · ${d.extraction ? DOC_TYPE_LABEL[d.extraction.doc_type] : "자료"}`;
         if ((d.summary_access_level === "L1" || d.summary_access_level === "L2") && !summary(d)) {
           locked.push({ target_type: "document_summary", target_id: d.id, label: `${label} 요약`, category: d.category, level: d.summary_access_level, request_status: requestStatus.get(`document_summary:${d.id}`) ?? null });
         }
-        if (d.kind !== "report" && (d.access_level === "L1" || d.access_level === "L2") && !raw(d)) {
+        if (!isVirtual(d.kind) && (d.access_level === "L1" || d.access_level === "L2") && !raw(d)) {
           locked.push({ target_type: "document", target_id: d.id, label: `${label} 원본`, category: d.category, level: d.access_level, request_status: requestStatus.get(`document:${d.id}`) ?? null });
         }
       }
@@ -56,6 +56,9 @@ export async function GET(request: Request, ctx: RouteContext<"/api/listings/[id
       data_points,
       report,
       report_access: access.isOwner && reportDoc ? { document_id: reportDoc.id, level: reportDoc.summary_access_level } : null,
+      input_access: access.isOwner
+        ? inputDocs.map((d) => ({ document_id: d.id, key: d.checklist_key as InputKey, level: d.summary_access_level }))
+        : [],
       nda: access.isOwner ? null : ((nda.data as NdaStatus | null) ?? null),
       locked,
       pending_requests: access.isOwner ? (grants.count ?? 0) : 0,

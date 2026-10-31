@@ -9,8 +9,14 @@ import { detectKind, prepareFile } from "./prepare";
 import { BUCKET, getSupabase } from "./supabase";
 import type { AccessLevel, DocCategory, ExtractedDocument, Listing, ListingDocument, PublicListing } from "./types";
 
+// 파일이 없는 데이터룸 항목: AI 교차 검증 리포트(report), 양도인 직접 입력(input — 월 비용, 시설 목록).
+// 다운로드·AI 판독·교차 검증·자료 개수에서 뺀다 (docs/API.md 11.1).
+export const VIRTUAL_KINDS = ["report", "input"] as const;
+export const VIRTUAL_KINDS_FILTER = `(${VIRTUAL_KINDS.join(",")})`;
+export const isVirtual = (kind: string) => (VIRTUAL_KINDS as readonly string[]).includes(kind);
+
 export const DOCUMENT_COLUMNS =
-  "id, created_at, updated_at, file_name, kind, size, category, access_level, summary_access_level, extraction, verification_status, storage_path, deal_id";
+  "id, created_at, updated_at, file_name, kind, size, category, checklist_key, access_level, summary_access_level, extraction, verification_status, storage_path, deal_id";
 
 export async function getListing(id: string): Promise<Listing> {
   if (!/^[0-9a-f-]{36}$/i.test(id)) throw new HttpError(404, "매물을 찾을 수 없어요.");
@@ -86,6 +92,9 @@ export function toPublicListing(l: Listing): PublicListing {
     themes: l.themes,
     status: l.status,
     is_sample: l.is_sample,
+    premium_breakdown: l.premium_breakdown,
+    maintenance_fee: l.maintenance_fee,
+    lease_remaining_months: l.lease_remaining_months,
   };
 }
 
@@ -158,7 +167,7 @@ export async function createDocument(
 // AI가 실패해도 자료 자체는 남고 verification_status만 ai_failed가 된다.
 // cached를 주면 AI를 부르지 않고 그 결과를 쓴다 (같은 샘플 파일을 매번 다시 분석하지 않게).
 export async function analyzeDocument(doc: StoredDocument, cached?: ExtractedDocument) {
-  if (doc.extraction || doc.kind === "report") return doc;
+  if (doc.extraction || isVirtual(doc.kind)) return doc;
   const supabase = getSupabase();
 
   let extracted: ExtractedDocument | undefined = cached;
@@ -251,6 +260,9 @@ export function parseListingInput(body: Record<string, unknown>) {
     monthly_rent: amount(body.monthly_rent, "월세", true),
     claimed_monthly_sales: amount(body.claimed_monthly_sales, "양도인 주장 월매출", true),
     claimed_monthly_profit: amount(body.claimed_monthly_profit, "양도인 주장 월 순수익", false),
+    claimed_monthly_cash_sales: amount(body.claimed_monthly_cash_sales, "주장 월 현금매출", false),
+    maintenance_fee: amount(body.maintenance_fee, "관리비", false),
+    lease_remaining_months: smallInt(body.lease_remaining_months, "임대차 잔여기간"),
     premium_breakdown: {
       business: amount(pb.business, "영업권리금", false),
       facility: amount(pb.facility, "시설권리금", false),

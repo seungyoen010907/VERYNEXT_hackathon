@@ -4,7 +4,7 @@
 import { NextResponse } from "next/server";
 import { getUser } from "@/lib/auth";
 import { handleError, HttpError } from "@/lib/http";
-import { analyzeDocument, assertOwner, createDocument, getListing } from "@/lib/listings";
+import { analyzeDocument, assertOwner, createDocument, getListing, VIRTUAL_KINDS_FILTER } from "@/lib/listings";
 import { getSupabase } from "@/lib/supabase";
 import { DOC_CATEGORIES, type DocCategory } from "@/lib/types";
 
@@ -30,7 +30,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/listings/[i
     if (!DOC_CATEGORIES.includes(category as DocCategory)) throw new HttpError(400, "자료 분류가 올바르지 않아요.");
 
     const supabase = getSupabase();
-    const { count, error: countError } = await supabase.from("documents").select("id", { count: "exact", head: true }).eq("deal_id", id).neq("kind", "report");
+    const { count, error: countError } = await supabase.from("documents").select("id", { count: "exact", head: true }).eq("deal_id", id).not("kind", "in", VIRTUAL_KINDS_FILTER);
     if (countError) throw countError;
     if ((count ?? 0) >= MAX_DOCS) throw new HttpError(400, `매물 하나에 자료는 ${MAX_DOCS}개까지 올릴 수 있어요.`);
 

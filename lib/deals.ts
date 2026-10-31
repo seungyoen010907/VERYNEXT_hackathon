@@ -7,7 +7,7 @@ import "server-only";
 
 import { getUser, type CurrentUser } from "./auth";
 import { HttpError } from "./http";
-import { getListing } from "./listings";
+import { getListing, VIRTUAL_KINDS_FILTER } from "./listings";
 import { buildChecklist, STAGES, stageTitle, templateFor } from "./roadmap";
 import { getSupabase } from "./supabase";
 import type { ChecklistItem, DocType, Listing, MessageRole, StageKey } from "./types";
@@ -93,7 +93,7 @@ async function sharedDocTypes(listingIds: string[]): Promise<Map<string, Set<str
     .from("documents")
     .select("deal_id, extraction, access_level, summary_access_level")
     .in("deal_id", listingIds)
-    .neq("kind", "report");
+    .not("kind", "in", VIRTUAL_KINDS_FILTER);
   if (error) throw error;
   for (const d of data ?? []) {
     if (d.access_level === "L3" && d.summary_access_level === "L3") continue;
