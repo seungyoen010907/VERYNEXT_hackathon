@@ -11,7 +11,7 @@ const notoSansKr = Noto_Sans_KR({
 });
 
 export const metadata: Metadata = {
-  title: "점포 양도양수 에이전트",
+  title: "AI 점포 양도양수 에이전트",
   description: "양도인 매출 자료를 검증하고 계약 절차를 안내하는 거래방",
 };
 
@@ -24,8 +24,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <header className="bg-card">
             <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 md:h-16 md:py-0 md:px-6">
               <Link href="/" className="min-w-0">
-                <p className="font-bold">점포 양도양수 에이전트</p>
-                <p className="text-xs text-muted">매출 검증부터 계약까지 한 거래방에서</p>
+                <p className="font-bold">AI 점포 양도양수 에이전트</p>
+                <p className="text-xs text-muted">AI 에이전트가 매물 정보를 주고받는 인수 실사</p>
               </Link>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2 whitespace-nowrap">
                 <Link href="/dashboard" className="text-sm text-muted hover:text-text">

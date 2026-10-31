@@ -153,6 +153,11 @@ function Header({ room, onChanged }: { room: DataRoom; onChanged: () => void }) 
           </button>
         )}
       </div>
+      {!room.is_owner && (
+        <Link href={`/listings/${l.id}/report`} className="mt-3 inline-flex text-sm text-accent">
+          AI 실사 리포트 보기
+        </Link>
+      )}
       {room.is_owner && (
         <Link href={`/listings/${l.id}/requests`} className="mt-3 inline-flex items-center gap-2 text-sm text-accent">
           구매자 요청 관리

@@ -320,3 +320,30 @@ export function findRisks(f: ListingFacts, fit: PersonalFit, p: BuyerProfile | n
   }
   return risks.sort((a, b) => b.severity - a.severity);
 }
+
+// ---- 투자금 회수 시나리오 (권리금을 하나의 정답 가격으로 말하지 않는다, PRD 7.3) ----
+
+export type Scenario = { label: string; sales_change: number; monthly_profit: number | null; payback_months: number | null; basis: string };
+
+// 매출이 ±10% 바뀌면 재료비·수수료도 같은 비율로 바뀌고, 나머지 비용은 그대로라고 가정한다
+export function paybackScenarios(f: ListingFacts, fit: PersonalFit): Scenario[] {
+  const sales = f.monthly_sales_avg.value;
+  const cost = f.monthly_cost_avg.value;
+  const variable = (f.cost_breakdown.ingredients ?? 0) + (f.cost_breakdown.fees ?? 0);
+  const extra = fit.extra_labor_cost.value ?? 0;
+  const invest = f.initial_investment.value!;
+  return [-0.1, 0, 0.1].map((d) => {
+    const label = d < 0 ? "보수적 (매출 −10%)" : d > 0 ? "낙관적 (매출 +10%)" : "현재 수준";
+    if (sales === null || cost === null) {
+      return { label, sales_change: d, monthly_profit: null, payback_months: null, basis: "매출 또는 비용을 알 수 없어요" };
+    }
+    const profit = Math.round(sales * (1 + d) - (cost + variable * d) - extra);
+    return {
+      label,
+      sales_change: d,
+      monthly_profit: profit,
+      payback_months: profit > 0 ? Math.round((invest / profit) * 10) / 10 : null,
+      basis: `매출 ${won(sales)} × ${1 + d} − 비용 ${won(cost)}(재료비·수수료 ${Math.round(d * 100)}% 반영) − 추가 인건비 ${won(extra)} (AI 추정)`,
+    };
+  });
+}
