@@ -207,7 +207,7 @@ samples/                            가상 점포 '샘플분식' 자료 4종 (�
 - 리포트가 없으면 404.
 - `seller` 역할에게는 `result.summary.negotiation_points`를 빼고 준다 (협상 포인트는 양수인에게만).
 
-### POST `/api/demo` (P1, PRD 8-4)
+### POST `/api/demo` (P1, PRD 11.3)
 
 `samples/`의 '샘플분식' 자료 4종으로 거래방을 만들고, 동의·업로드·검증까지 한 번에 실행한다.
 
@@ -305,7 +305,7 @@ AI는 **두 번** 부른다. 숫자 비교·합계·등급은 AI가 아니라 �
 | SDK | `openai` 공식 Node SDK |
 | API | Responses API (`client.responses.create`) |
 | 모델 | `process.env.OPENAI_MODEL`, 없으면 `gpt-6-astra` |
-| 프롬프트 | `instructions` = 역할 + 규칙 (PRD 8-2 AI 성격 포함), `input` = 자료 또는 계산 결과 |
+| 프롬프트 | `instructions` = 역할 + 규칙 (PRD 7.3 AI 동작 원칙 포함), `input` = 자료 또는 계산 결과 |
 | 출력 형식 | 구조화 출력: `text.format = { type: "json_schema", name: "...", strict: true, schema }` |
 | 결과 읽기 | `JSON.parse(response.output_text)` |
 
@@ -387,7 +387,7 @@ AI는 **두 번** 부른다. 숫자 비교·합계·등급은 AI가 아니라 �
 - 모든 속성을 `required`에 넣는다. 선택 값이 필요하면 `["string", "null"]`처럼 null을 허용하거나 빈 배열로 받는다.
 - 개수 제한(2~5개 등)은 스키마가 아니라 `instructions` 문장으로 지시한다.
 
-### 내 버전 섹션 추가하는 법 (PRD 8-3: 핵심 위험 Top 3)
+### 내 버전 섹션 추가하는 법 (PRD 11.3: 핵심 위험 Top 3)
 
 1. `lib/types.ts`의 `Summary`에 `top_risks: { risk, evidence, impact, how_to_check }[]` 추가
 2. `lib/summary-schema.ts`에 같은 필드 추가 (`required`에도, 하위 object에도 `additionalProperties: false`)

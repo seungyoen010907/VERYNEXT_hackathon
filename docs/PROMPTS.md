@@ -155,9 +155,9 @@ Step 4만 해. docs/API.md 4번대로:
 ## Step 5. 내 버전
 
 ```
-docs/PRD.md 8번 "내 버전"에 내가 채운 것만 구현해.
-- 8-3 핵심 위험 Top 3는 docs/API.md "내 버전 섹션 추가하는 법" 순서를 따라.
-- 8-4 샘플 자료로 시연하기는 docs/API.md의 POST /api/demo대로 만들어. 거래방 목록 화면 위쪽에 버튼을 달아.
+docs/PRD.md 11.3 "내 버전"에 내가 채운 것만 구현해.
+- 핵심 위험 Top 3는 docs/API.md "내 버전 섹션 추가하는 법" 순서를 따라.
+- 샘플 자료로 시연하기는 docs/API.md의 POST /api/demo대로 만들어. 거래방 목록 화면 위쪽에 버튼을 달아.
 먼저 계획(바꿀 파일과 이유)만 보여주고, 내가 OK 하면 구현해.
 ```
 
@@ -166,7 +166,7 @@ docs/PRD.md 8번 "내 버전"에 내가 채운 것만 구현해.
 - 확인 3: 핵심 위험에 나온 숫자가 월별 매출표의 숫자와 같다 (AI가 숫자를 지어내지 않았는지).
 - 커밋: `git add . && git commit -m "step5: my version - top risks, demo button"` 그리고 `git push`
 
-시간 남으면: 조건 합의(`/deals/[id]/terms`), 권리금 계약서 PDF (PRD 4번 P1).
+시간 남으면: 조건 합의(`/deals/[id]/terms`), 매물 비교(PRD F05) 또는 양수인 조건 입력(PRD 4.2 Step 1).
 
 ---
 
