@@ -5,7 +5,9 @@ import { getUser } from "@/lib/auth";
 import { handleError, HttpError } from "@/lib/http";
 import { parseListingInput, toPublicListing } from "@/lib/listings";
 import { getSupabase } from "@/lib/supabase";
+import { personalFit, recommend } from "@/lib/facts";
 import type { Listing } from "@/lib/types";
+import { getBuyerProfile, visibleFacts } from "@/lib/visible";
 
 export async function GET(request: Request) {
   try {
@@ -19,10 +21,29 @@ export async function GET(request: Request) {
       .limit(100);
     if (error) throw error;
     const rows = (data ?? []) as Listing[];
-    return NextResponse.json({
-      mine: rows.filter((l) => l.seller_id === user.id),
-      published: rows.filter((l) => l.seller_id !== user.id).map(toPublicListing),
-    });
+    const others = rows.filter((l) => l.seller_id !== user.id);
+
+    // 양수인이면 지금 볼 수 있는 자료만으로 추천 점수를 계산한다 (코드 계산, 가중치 공개)
+    const profile = user.roles.includes("buyer") ? await getBuyerProfile(user.id) : null;
+    const published = await Promise.all(
+      others.map(async (l) => {
+        if (!user.roles.includes("buyer")) return toPublicListing(l);
+        const { facts } = await visibleFacts(user, l);
+        const fit = personalFit(facts, profile);
+        return {
+          ...toPublicListing(l),
+          recommendation: recommend(facts, fit, profile),
+          summary: {
+            monthly_sales_avg: facts.monthly_sales_avg,
+            expected_profit: fit.expected_profit,
+            report_grade: facts.report_grade,
+            within_budget: fit.within_budget,
+            visible_points: facts.visible_points,
+          },
+        };
+      }),
+    );
+    return NextResponse.json({ mine: rows.filter((l) => l.seller_id === user.id), published, has_profile: !!profile });
   } catch (e) {
     return handleError(e);
   }

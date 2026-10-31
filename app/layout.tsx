@@ -28,8 +28,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 <p className="text-xs text-muted">매출 검증부터 계약까지 한 거래방에서</p>
               </Link>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2 whitespace-nowrap">
+                <Link href="/dashboard" className="text-sm text-muted hover:text-text">
+                  대시보드
+                </Link>
                 <Link href="/listings" className="text-sm text-muted hover:text-text">
                   매물
+                </Link>
+                <Link href="/diligence" className="text-sm text-muted hover:text-text">
+                  AI 실사
                 </Link>
                 <Link href="/deals" className="text-sm text-muted hover:text-text">
                   내 거래방 목록
