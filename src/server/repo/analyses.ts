@@ -15,7 +15,7 @@ import { buildAnalysisInput } from "../analysis/input";
 import { overallRiskLevel } from "../analysis/risk";
 import { ANALYSIS_BASIS, ENGINE_VERSION, type AnalysisInput, type FullAnalysisResult } from "../analysis/types";
 import { pgArray, type Db } from "../db/client";
-import { notFound } from "../errors";
+import { AppError, notFound } from "../errors";
 import { loadNormalizedSources } from "../ingest/service";
 import { assertCanEdit, type Viewer } from "../viewer";
 import { recordActivity } from "./activities";
@@ -103,6 +103,10 @@ async function execute(db: Db, viewer: Viewer, analysis: Analysis, store: Store,
       asOf: input.asOf,
       normalizedDataIds: Object.keys(input.sourceDocuments),
       documentIds: input.documents.map((d) => d.id),
+      /** 비용 항목별 출처 (증빙 / 계약서 / 양도인 입력 / 확인 안 됨) */
+      costSources: result.profit.costSources,
+      /** 월별 총매출 산정 방식과 주의 사항 */
+      revenueMethods: result.revenue.monthlyTotals.map((t) => ({ yearMonth: t.yearMonth, method: t.method, caveats: t.caveats })),
     };
     if (!full) {
       await tx.query(
@@ -117,7 +121,8 @@ async function execute(db: Db, viewer: Viewer, analysis: Analysis, store: Store,
        where id = $1`,
       [analysis.id, JSON.stringify(snapshot), JSON.stringify(result.basis), result.verificationLevel, JSON.stringify(result.missingData), result.summary],
     );
-    await setStoreStatus(tx, store.id, result.verificationLevel === "verified" && result.missingData.length === 0 ? "verified" : "needs_more_documents");
+    // 핵심 항목이 증빙으로 확인되면 검증 완료. 선택 자료(광고비 등) 부족은 보고서의 부족 자료로만 표시한다.
+    await setStoreStatus(tx, store.id, result.verificationLevel === "verified" ? "verified" : "needs_more_documents");
     const level = overallRiskLevel(result.risks);
     await recordActivity(tx, {
       storeId: store.id,
@@ -165,6 +170,10 @@ export async function getAnalysis(db: Db, viewer: Viewer, id: string): Promise<{
 export async function runAnalysisParts(db: Db, viewer: Viewer, analysisId: string, parts: readonly AnalysisPart[]) {
   const { analysis, store } = await getAnalysis(db, viewer, analysisId);
   assertCanEdit(viewer, store);
+  if (analysis.status === "completed") {
+    // 완료된 분석은 이력 보존을 위해 다시 계산하지 않는다
+    throw new AppError(409, "ANALYSIS_COMPLETED", "완료된 분석은 다시 계산하지 않습니다. 새 분석을 실행하세요.");
+  }
   await execute(db, viewer, analysis, store, parts);
   return getAnalysisBundle(db, viewer, analysisId);
 }

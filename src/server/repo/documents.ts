@@ -1,7 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
-  ALLOWED_MIME_TYPES,
   DOCUMENT_TYPE_LABELS,
   DOCUMENT_TYPES,
   type AllowedMimeType,

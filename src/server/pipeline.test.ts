@@ -136,6 +136,26 @@ describe("증빙 부족 매물에 자료를 추가하는 흐름", () => {
     expect(progress.analysisOutdated).toBe(false);
   });
 
+  it("분석된 파일과 같은 내용의 사본을 올려도 분석된 자료가 빠지지 않는다 (회귀 테스트)", async () => {
+    const store = await createStore(db, seller, {
+      name: "중복 회귀", industry: "카페", address: "서울특별시 중구 1", businessPeriodMonths: null,
+      deposit: 0, monthlyRent: 0, premium: 0, claimedMonthlyRevenue: 20_000_000, claimedMonthlyNetProfit: null,
+      facilityInvestment: 0, otherInitialCost: 0, description: "", isPublished: false,
+    });
+    const bytes = placeholderPdf(["same content"]);
+    const { document } = await uploadDocument(db, seller, { storeId: store.id, documentType: "pos_sales", fileName: "pos.pdf", bytes });
+    await importExtraction(db, seller, {
+      storeId: store.id,
+      documentId: document.id,
+      raw: { document_type: "pos_sales", revenues: [{ source: "pos", year_month: "2026-09", amount: 20_000_000, aggregation_basis: "gross_sales" }] },
+    });
+    // 같은 파일을 다른 종류로 한 번 더 올림 (분석 결과 없음)
+    const dup = await uploadDocument(db, seller, { storeId: store.id, documentType: "other", fileName: "pos-copy.pdf", bytes });
+    expect(dup.duplicateOf).toEqual([document.id]);
+    const bundle = await createAndRunFullAnalysis(db, seller, store.id);
+    expect(bundle.revenueChecks.find((c) => c.checkType === "claimed_vs_evidence")?.expectedAmount).toBe(20_000_000);
+  });
+
   it("형식이 잘못된 분석 결과는 원본만 보존하고 문서를 실패로 표시한다", async () => {
     const store = await storeByName("증빙 부족");
     const { document } = await uploadDocument(db, seller, { storeId: store.id, documentType: "card_sales", fileName: "card.pdf", bytes: placeholderPdf(["bad"]) });

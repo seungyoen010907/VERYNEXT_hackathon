@@ -204,19 +204,22 @@ export async function loadNormalizedSources(db: Db, storeId: string): Promise<No
     file_name: string | null;
     payload: NormalizedPayload;
   }>(
-    `with active_docs as (
-        select distinct on (coalesce(d.content_hash, d.id::text)) d.id, d.file_name
-          from documents d
-         where d.store_id = $1 and d.status <> 'failed'
-           and not exists (select 1 from documents r where r.replaces_document_id = d.id)
-         order by coalesce(d.content_hash, d.id::text), d.created_at desc
-     ),
-     latest_per_doc as (
+    `with latest_per_doc as (
         select distinct on (e.document_id) n.id, n.created_at, e.document_id, n.payload
           from normalized_data n
           join extracted_data e on e.id = n.extracted_data_id
          where n.store_id = $1 and e.document_id is not null
          order by e.document_id, n.created_at desc
+     ),
+     -- 같은 내용의 파일이 여러 건이면 분석 결과가 있는 것 중 가장 최근 1건만 쓴다
+     -- (분석 결과가 없는 사본 때문에 분석된 원본이 빠지지 않도록 분석 결과 기준으로 고른다)
+     deduped as (
+        select distinct on (coalesce(d.content_hash, d.id::text)) l.id, l.created_at, l.document_id, d.file_name, l.payload
+          from latest_per_doc l
+          join documents d on d.id = l.document_id
+         where d.status <> 'failed'
+           and not exists (select 1 from documents r where r.replaces_document_id = d.id)
+         order by coalesce(d.content_hash, d.id::text), l.created_at desc
      ),
      standalone as (
         select distinct on (n.payload::text) n.id, n.created_at, null::uuid as document_id, n.payload
@@ -225,8 +228,7 @@ export async function loadNormalizedSources(db: Db, storeId: string): Promise<No
          where n.store_id = $1 and e.document_id is null
          order by n.payload::text, n.created_at desc
      )
-     select l.id, l.created_at, l.document_id, a.file_name, l.payload
-       from latest_per_doc l join active_docs a on a.id = l.document_id
+     select id, created_at, document_id, file_name, payload from deduped
      union all
      select s.id, s.created_at, s.document_id, null, s.payload from standalone s
      order by created_at`,

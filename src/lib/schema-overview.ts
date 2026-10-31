@@ -2,7 +2,7 @@
  * 마이그레이션 SQL을 읽어 테이블·컬럼·관계 목록을 만든다.
  * 개발 현황 페이지가 실제 스키마 파일과 어긋나지 않게 하기 위한 용도다.
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 export interface ColumnInfo {
@@ -35,13 +35,17 @@ const TABLE_DESCRIPTIONS: Record<string, string> = {
   risk_assessments: "규칙 기반 위험 탐지 결과",
   reports: "종합 실사 보고서",
   chat_messages: "AI 상담 대화",
+  document_requests: "추가 자료 요청 기록",
+  activities: "실사 활동 기록 (수정 불가)",
 };
 
 export function readSchemaOverview(): TableInfo[] {
-  const sql = readFileSync(
-    join(process.cwd(), "supabase", "migrations", "0001_initial_schema.sql"),
-    "utf8",
-  );
+  const dir = join(process.cwd(), "supabase", "migrations");
+  const sql = readdirSync(dir)
+    .filter((f) => f.endsWith(".sql"))
+    .sort()
+    .map((f) => readFileSync(join(dir, f), "utf8"))
+    .join("\n");
   const tables: TableInfo[] = [];
 
   for (const match of sql.matchAll(/create table public\.(\w+) \(\n([\s\S]*?)\n\);/g)) {
@@ -73,6 +77,14 @@ export function readSchemaOverview(): TableInfo[] {
       columns,
       references: [...references],
     });
+  }
+  // 이후 마이그레이션에서 추가한 컬럼 (alter table ... add column ...)
+  for (const match of sql.matchAll(/alter table public\.(\w+)\n([\s\S]*?);/g)) {
+    const table = tables.find((t) => t.name === match[1]);
+    if (!table) continue;
+    for (const col of match[2].matchAll(/add column (\w+) ([a-z_]+)([^,\n]*)/g)) {
+      table.columns.push({ name: col[1], type: col[2], nullable: !/not null/.test(col[3]), comment: "추가 컬럼 (0002)" });
+    }
   }
   return tables;
 }
