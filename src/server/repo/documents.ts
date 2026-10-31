@@ -59,6 +59,19 @@ export interface UploadResult {
 
 export async function uploadDocument(db: Db, viewer: Viewer, input: UploadInput): Promise<UploadResult> {
   const store = await getEditableStore(db, viewer, input.storeId);
+  return saveDocument(db, viewer, store, input);
+}
+
+/**
+ * 권한 확인을 마친 뒤 호출한다. 거래 메신저에서는 양수인도 파일을 공유하므로 호출 측이 권한을 확인한다.
+ * dealId를 주면 해당 거래에서 공유한 파일로 기록한다.
+ */
+export async function saveDocument(
+  db: Db,
+  viewer: Viewer,
+  store: { id: string },
+  input: UploadInput & { dealId?: string | null; recordStoreActivity?: boolean },
+): Promise<UploadResult> {
   if (input.bytes.byteLength === 0) throw badRequest("빈 파일입니다.");
   if (input.bytes.byteLength > MAX_FILE_SIZE) throw badRequest("파일은 20MB 이하만 업로드할 수 있습니다.");
   const mimeType = detectMimeType(input.bytes, input.fileName);
@@ -85,11 +98,13 @@ export async function uploadDocument(db: Db, viewer: Viewer, input: UploadInput)
   const document = await db.transaction(async (tx) => {
     const rows = await tx.query(
       `insert into documents (id, store_id, uploaded_by, document_type, file_name, storage_path, mime_type,
-         file_size, content_hash, replaces_document_id)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *`,
-      [id, store.id, viewer.id, input.documentType, fileName, storagePath, mimeType, input.bytes.byteLength, contentHash, input.replacesDocumentId ?? null],
+         file_size, content_hash, replaces_document_id, deal_id)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning *`,
+      [id, store.id, viewer.id, input.documentType, fileName, storagePath, mimeType, input.bytes.byteLength, contentHash, input.replacesDocumentId ?? null, input.dealId ?? null],
     );
     const doc = camelize<Document>(rows[0]);
+    // 매물 활동 기록은 매물을 볼 수 있는 모든 사용자에게 보이므로, 양수인이 거래 중에 공유한 파일은 남기지 않는다
+    if (input.recordStoreActivity === false) return doc;
     await recordActivity(tx, {
       storeId: store.id,
       actorId: viewer.id,
@@ -167,9 +182,14 @@ export async function getDocument(db: Db, viewer: Viewer, id: string): Promise<D
   const rows = await db.query(`select * from documents where id = $1`, [id]);
   if (rows.length === 0) throw notFound("문서");
   const doc = camelize<Document>(rows[0]);
-  // 원본 문서는 매물 소유자만 볼 수 있다 (RLS 정책과 동일)
+  // 원본 문서는 매물 소유자만 볼 수 있다. 거래 메신저로 공유된 문서는 그 거래의 양수인도 볼 수 있다 (RLS 정책과 동일).
   const store = await getStore(db, viewer, doc.storeId);
-  if (store.ownerId !== viewer.id && viewer.role !== "admin") throw notFound("문서");
+  if (store.ownerId === viewer.id || viewer.role === "admin") return doc;
+  const shared = await db.query(
+    `select 1 from deal_messages m join deals d on d.id = m.deal_id where m.document_id = $1 and d.buyer_id = $2 limit 1`,
+    [doc.id, viewer.id],
+  );
+  if (shared.length === 0) throw notFound("문서");
   return doc;
 }
 

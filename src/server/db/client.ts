@@ -97,6 +97,9 @@ export function getDb(): Promise<Db> {
       const db = await createLocalDb({ dataDir: join(localDataDir(), "pglite") });
       const { seedIfEmpty } = await import("../seed/seed");
       await seedIfEmpty(db);
+      // 0003 이전에 만든 로컬 DB에는 시연용 거래가 없으므로 한 번 채운다
+      const { seedDealsIfEmpty } = await import("../seed/deals");
+      await seedDealsIfEmpty(db);
       return db;
     })().catch((err) => {
       globalForDb.__diligenceDb = undefined;

@@ -39,6 +39,17 @@ const PAIRS: Array<[string, readonly string[]]> = [
   ["chat_role", domain.CHAT_ROLES],
   ["document_request_status", domain.DOCUMENT_REQUEST_STATUSES],
   ["activity_type", domain.ACTIVITY_TYPES],
+  ["listing_status", domain.LISTING_STATUSES],
+  ["deal_stage", domain.DEAL_STAGES],
+  ["deal_message_kind", domain.DEAL_MESSAGE_KINDS],
+  ["party_role", domain.PARTY_ROLES],
+  ["deal_task_group", domain.DEAL_TASK_GROUPS],
+  ["deal_task_status", domain.DEAL_TASK_STATUSES],
+  ["deal_task_source", domain.DEAL_TASK_SOURCES],
+  ["actor_kind", domain.ACTOR_KINDS],
+  ["ai_run_trigger", domain.AI_RUN_TRIGGERS],
+  ["finding_status", domain.FINDING_STATUSES],
+  ["deal_event_type", domain.DEAL_EVENT_TYPES],
 ];
 
 describe("SQL enum ↔ TypeScript 상수 일치", () => {

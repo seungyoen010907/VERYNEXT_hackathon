@@ -11,6 +11,7 @@ import { uploadDocument } from "../repo/documents";
 import { generateReport } from "../repo/reports";
 import { createStore } from "../repo/stores";
 import { DEMO_USERS } from "../viewer";
+import { seedDeals } from "./deals";
 import { SCENARIOS } from "./scenarios";
 
 /** 텍스트 한 줄짜리 최소 PDF. 테스트 자료임을 파일 안에도 표시한다. */
@@ -79,6 +80,7 @@ export async function seedIfEmpty(db: Db): Promise<void> {
   if (rows[0].n > 0) return;
   await seedDemoUsers(db);
   await seedScenarios(db);
+  await seedDeals(db);
 }
 
 /** 테스트 매물만 지우고 다시 만든다. 사용자가 등록한 매물은 유지한다. */
@@ -86,4 +88,5 @@ export async function resetTestData(db: Db): Promise<void> {
   await db.query(`delete from stores where is_test_data`);
   await seedDemoUsers(db);
   await seedScenarios(db);
+  await seedDeals(db);
 }

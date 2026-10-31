@@ -23,6 +23,18 @@ const EXPECTED_TABLES = [
   "chat_messages",
   "document_requests",
   "activities",
+  "deals",
+  "deal_messages",
+  "deal_reads",
+  "deal_tasks",
+  "deal_task_events",
+  "deal_ai_runs",
+  "deal_ai_findings",
+  "deal_ai_messages",
+  "deal_events",
+  "deal_term_changes",
+  "deal_private_notes",
+  "deal_reports",
 ];
 
 let db: PGlite;
@@ -68,7 +80,7 @@ afterAll(async () => {
 });
 
 describe("마이그레이션", () => {
-  it("16개 테이블을 모두 생성하고 전부 RLS를 켠다", async () => {
+  it("28개 테이블을 모두 생성하고 전부 RLS를 켠다", async () => {
     const res = await db.query<{ tablename: string; rowsecurity: boolean }>(
       `select tablename, rowsecurity from pg_tables where schemaname = 'public' order by tablename`,
     );
@@ -254,5 +266,87 @@ describe("행 수준 보안 (RLS)", () => {
         ),
       ),
     ).rejects.toThrow(/row-level security/);
+  });
+});
+
+describe("거래 워크스페이스 RLS (0003)", () => {
+  const OTHER_BUYER = "55555555-5555-5555-5555-555555555555";
+  let storeId: string;
+  let dealId: string;
+  let sharedDoc: string;
+  let privateDoc: string;
+
+  beforeAll(async () => {
+    await createAuthUser(db, OTHER_BUYER, "buyer2@test.local", { role: "buyer" });
+    storeId = await insertStore(SELLER, { name: "거래 매물", is_published: true });
+    dealId = await asUser(db, BUYER, async () => {
+      const r = await db.query<{ id: string }>(
+        `insert into public.deals (store_id, seller_id, buyer_id) values ($1, $2, $3) returning id`,
+        [storeId, SELLER, BUYER],
+      );
+      return r.rows[0].id;
+    });
+    const mkDoc = async (name: string) =>
+      (
+        await db.query<{ id: string }>(
+          `insert into public.documents (store_id, document_type, file_name, storage_path, mime_type, file_size)
+           values ($1, 'pos_sales', $2, $3, 'application/pdf', 10) returning id`,
+          [storeId, name, `${storeId}/${name}`],
+        )
+      ).rows[0].id;
+    sharedDoc = await mkDoc("shared.pdf");
+    privateDoc = await mkDoc("private.pdf");
+    await db.query(`insert into public.deal_messages (deal_id, sender_id, kind, body, document_id) values ($1, $2, 'file', '', $3)`, [
+      dealId,
+      SELLER,
+      sharedDoc,
+    ]);
+    await db.query(`insert into public.deal_private_notes (deal_id, user_id, body) values ($1, $2, '협상 전략')`, [dealId, BUYER]);
+  });
+
+  it("같은 매물·양수인 조합의 거래는 하나만 만들 수 있다", async () => {
+    await expect(
+      db.query(`insert into public.deals (store_id, seller_id, buyer_id) values ($1, $2, $3)`, [storeId, SELLER, BUYER]),
+    ).rejects.toThrow(/duplicate key/);
+  });
+
+  it("거래 당사자가 아니면 거래와 메시지를 볼 수 없다", async () => {
+    const [deals, msgs] = await asUser(db, OTHER_BUYER, async () => [
+      (await db.query(`select id from public.deals where id = $1`, [dealId])).rows.length,
+      (await db.query(`select id from public.deal_messages where deal_id = $1`, [dealId])).rows.length,
+    ]);
+    expect([deals, msgs]).toEqual([0, 0]);
+  });
+
+  it("메신저로 공유된 문서만 양수인에게 보인다", async () => {
+    const ids = await asUser(db, BUYER, async () =>
+      (await db.query<{ id: string }>(`select id from public.documents where store_id = $1`, [storeId])).rows.map((r) => r.id),
+    );
+    expect(ids).toContain(sharedDoc);
+    expect(ids).not.toContain(privateDoc);
+  });
+
+  it("비공개 메모는 작성자만 본다", async () => {
+    const sellerSees = await asUser(db, SELLER, async () =>
+      (await db.query(`select body from public.deal_private_notes where deal_id = $1`, [dealId])).rows.length,
+    );
+    expect(sellerSees).toBe(0);
+  });
+
+  it("메시지는 수정할 수 없다", async () => {
+    await expect(db.query(`update public.deal_messages set body = 'x' where deal_id = $1`, [dealId])).rejects.toThrow(/수정할 수 없습니다/);
+  });
+
+  it("AI·시스템의 체크리스트 상태 변경은 근거 없이 기록할 수 없다", async () => {
+    const task = await db.query<{ id: string }>(
+      `insert into public.deal_tasks (deal_id, key, task_group, title, assignee_role) values ($1, 'pos', 'revenue', 'POS', 'buyer') returning id`,
+      [dealId],
+    );
+    await expect(
+      db.query(
+        `insert into public.deal_task_events (task_id, deal_id, actor_kind, from_status, to_status) values ($1, $2, 'ai', 'requested', 'done')`,
+        [task.rows[0].id, dealId],
+      ),
+    ).rejects.toThrow(/check constraint/);
   });
 });

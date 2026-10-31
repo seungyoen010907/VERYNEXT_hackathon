@@ -178,6 +178,36 @@ export async function runAnalysisParts(db: Db, viewer: Viewer, analysisId: strin
   return getAnalysisBundle(db, viewer, analysisId);
 }
 
+/**
+ * 시스템 실행: 매물의 최신 완료 분석이 현재 자료보다 오래되었으면 새 분석을 만든다.
+ * AI 거래 분석이 기존 실사 엔진 결과를 최신 자료 기준으로 쓰기 위해 호출한다.
+ * 분석 이력은 그대로 쌓이고, 요청자는 actor로 기록한다. 최신이면 null을 돌려준다.
+ */
+export async function refreshStoreAnalysisIfOutdated(db: Db, store: Store, actor: Viewer): Promise<string | null> {
+  const [latest, input] = await Promise.all([
+    db.query<{ id: string; completed_at: string }>(
+      `select id, completed_at from analyses where store_id = $1 and status = 'completed' order by completed_at desc limit 1`,
+      [store.id],
+    ),
+    db.query<{ at: string | null }>(
+      `select greatest(
+          (select max(created_at) from normalized_data where store_id = $1),
+          (select max(updated_at) from stores where id = $1)) as at`,
+      [store.id],
+    ),
+  ]);
+  const lastInput = input[0]?.at;
+  if (!lastInput) return null;
+  if (latest[0] && latest[0].completed_at >= lastInput) return null;
+  const rows = await db.query(
+    `insert into analyses (store_id, requested_by, status, engine_version, basis) values ($1, $2, 'pending', $3, $4) returning *`,
+    [store.id, actor.id, ENGINE_VERSION, JSON.stringify(ANALYSIS_BASIS)],
+  );
+  const analysis = camelize<Analysis>(rows[0]);
+  await execute(db, actor, analysis, store, ANALYSIS_PARTS);
+  return analysis.id;
+}
+
 export async function createAndRunFullAnalysis(db: Db, viewer: Viewer, storeId: string) {
   const analysis = await createAnalysis(db, viewer, storeId);
   return runAnalysisParts(db, viewer, analysis.id, ANALYSIS_PARTS);

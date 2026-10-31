@@ -37,7 +37,9 @@ async function documentStates(db: Db, storeId: string): Promise<DocState[]> {
             coalesce((select jsonb_array_length(n.warnings) from normalized_data n
                        join extracted_data e on e.id = n.extracted_data_id
                       where e.document_id = d.id order by n.created_at desc limit 1), 0) as warning_count
-       from documents d where d.store_id = $1`,
+       from documents d where d.store_id = $1
+        -- 양수인이 거래 메신저에서 공유한 참고 파일은 매물 증빙 진행률에 넣지 않는다
+        and (d.deal_id is null or d.uploaded_by = (select owner_id from stores where id = d.store_id))`,
     [storeId],
   );
 }

@@ -25,6 +25,10 @@ export const storeInputSchema = z.object({
   otherInitialCost: nullableWon.default(null),
   description: z.string().max(5000).default(""),
   isPublished: z.boolean().default(false),
+  listingStatus: z.enum(["open", "negotiating", "closed"]).default("open"),
+  facilityDescription: z.string().max(3000).default(""),
+  dealConditions: z.string().max(3000).default(""),
+  discloseFinancials: z.boolean().default(true),
 });
 export type StoreInput = z.infer<typeof storeInputSchema>;
 export const storePatchSchema = storeInputSchema.partial();
@@ -90,7 +94,10 @@ export async function getStore(db: Db, viewer: Viewer, id: string): Promise<Stor
   const rows = await db.query(`select * from stores where id = $1`, [id]);
   if (rows.length === 0) throw notFound("매물");
   const store = camelize<Store>(rows[0]);
-  if (!canView(viewer, store)) throw notFound("매물");
+  if (canView(viewer, store)) return store;
+  // 거래 중인 양수인은 매물이 비공개로 바뀌어도 계속 볼 수 있다 (RLS 정책과 동일)
+  const deal = await db.query(`select 1 from deals where store_id = $1 and buyer_id = $2 limit 1`, [id, viewer.id]);
+  if (deal.length === 0) throw notFound("매물");
   return store;
 }
 
@@ -103,15 +110,17 @@ export async function getEditableStore(db: Db, viewer: Viewer, id: string): Prom
 export async function createStore(
   db: Db,
   viewer: Viewer,
-  input: StoreInput,
+  rawInput: z.input<typeof storeInputSchema>,
   opts: { isTestData?: boolean } = {},
 ): Promise<Store> {
+  const input: StoreInput = storeInputSchema.parse(rawInput);
   return db.transaction(async (tx) => {
     const rows = await tx.query(
       `insert into stores (owner_id, name, industry, address, region, business_period_months, deposit,
          monthly_rent, premium, claimed_monthly_revenue, claimed_monthly_net_profit, facility_investment,
-         other_initial_cost, description, is_published, is_test_data)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) returning *`,
+         other_initial_cost, description, is_published, is_test_data, listing_status, facility_description,
+         deal_conditions, disclose_financials)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) returning *`,
       [
         viewer.id,
         input.name,
@@ -129,6 +138,10 @@ export async function createStore(
         input.description,
         input.isPublished,
         opts.isTestData ?? false,
+        input.listingStatus,
+        input.facilityDescription,
+        input.dealConditions,
+        input.discloseFinancials,
       ],
     );
     const store = camelize<Store>(rows[0]);

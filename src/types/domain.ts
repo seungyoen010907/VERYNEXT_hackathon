@@ -305,6 +305,12 @@ export interface Store {
   status: StoreStatus;
   isPublished: boolean;
   isTestData: boolean;
+  listingStatus: ListingStatus;
+  facilityDescription: string;
+  dealConditions: string;
+  /** 매출·수익 정보와 검증 상태를 매물 상세에 공개할지 */
+  discloseFinancials: boolean;
+  coverImagePath: string | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -326,6 +332,8 @@ export interface Document {
   contentHash: string | null;
   /** 재업로드한 경우 이전 문서 ID */
   replacesDocumentId: Uuid | null;
+  /** 거래 메신저에서 공유한 파일이면 거래 ID */
+  dealId: Uuid | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -535,3 +543,233 @@ export interface ChatMessage {
 export type ApiResponse<T> =
   | { data: T; error: null }
   | { data: null; error: { code: string; message: string; details?: unknown } };
+
+// =============================================================================
+// 매물 탐색 · 거래 워크스페이스 (0003)
+// =============================================================================
+export const LISTING_STATUSES = ["open", "negotiating", "closed"] as const;
+export type ListingStatus = (typeof LISTING_STATUSES)[number];
+export const LISTING_STATUS_LABELS: Record<ListingStatus, string> = {
+  open: "거래 가능",
+  negotiating: "협의 중",
+  closed: "거래 완료",
+};
+
+export const DEAL_STAGES = [
+  "inquiry",
+  "negotiation",
+  "collecting",
+  "diligence",
+  "terms",
+  "contract",
+  "completed",
+  "cancelled",
+] as const;
+export type DealStage = (typeof DEAL_STAGES)[number];
+export const DEAL_STAGE_LABELS: Record<DealStage, string> = {
+  inquiry: "문의",
+  negotiation: "거래 협의",
+  collecting: "자료 수집",
+  diligence: "실사 및 검증",
+  terms: "조건 협상",
+  contract: "계약 진행",
+  completed: "거래 완료",
+  cancelled: "거래 중단",
+};
+/** 진행 순서 (완료·중단 제외) */
+export const DEAL_STAGE_FLOW: DealStage[] = ["inquiry", "negotiation", "collecting", "diligence", "terms", "contract", "completed"];
+
+export const DEAL_MESSAGE_KINDS = ["text", "file", "request", "system"] as const;
+export type DealMessageKind = (typeof DEAL_MESSAGE_KINDS)[number];
+
+export const PARTY_ROLES = ["seller", "buyer"] as const;
+export type PartyRole = (typeof PARTY_ROLES)[number];
+export const PARTY_ROLE_LABELS: Record<PartyRole, string> = { seller: "양도인", buyer: "양수인" };
+
+export const DEAL_TASK_GROUPS = ["revenue", "cost", "contract", "operation"] as const;
+export type DealTaskGroup = (typeof DEAL_TASK_GROUPS)[number];
+export const DEAL_TASK_GROUP_LABELS: Record<DealTaskGroup, string> = {
+  revenue: "매출",
+  cost: "비용",
+  contract: "계약",
+  operation: "운영",
+};
+
+export const DEAL_TASK_STATUSES = ["not_requested", "requested", "submitted", "reviewing", "needs_more", "done"] as const;
+export type DealTaskStatus = (typeof DEAL_TASK_STATUSES)[number];
+export const DEAL_TASK_STATUS_LABELS: Record<DealTaskStatus, string> = {
+  not_requested: "미요청",
+  requested: "요청 완료",
+  submitted: "제출 완료",
+  reviewing: "검토 중",
+  needs_more: "추가 자료 필요",
+  done: "완료",
+};
+
+export const DEAL_TASK_SOURCES = ["template", "ai", "user"] as const;
+export type DealTaskSource = (typeof DEAL_TASK_SOURCES)[number];
+
+export const ACTOR_KINDS = ["user", "ai", "system"] as const;
+export type ActorKind = (typeof ACTOR_KINDS)[number];
+
+export const AI_RUN_TRIGGERS = ["messages", "documents", "both"] as const;
+export type AiRunTrigger = (typeof AI_RUN_TRIGGERS)[number];
+
+export const FINDING_STATUSES = ["open", "resolved"] as const;
+export type FindingStatus = (typeof FINDING_STATUSES)[number];
+
+export type FindingCertainty = "fact" | "suspicion" | "needs_check";
+export const FINDING_CERTAINTY_LABELS: Record<FindingCertainty, string> = {
+  fact: "확인된 사실",
+  suspicion: "의심되는 부분",
+  needs_check: "추가 확인 필요",
+};
+
+export const DEAL_EVENT_TYPES = [
+  "deal_started",
+  "stage_changed",
+  "task_status_changed",
+  "request_sent",
+  "file_shared",
+  "document_analyzed",
+  "ai_analysis_completed",
+  "ai_risk_found",
+  "ai_risk_resolved",
+  "terms_changed",
+  "report_generated",
+] as const;
+export type DealEventType = (typeof DEAL_EVENT_TYPES)[number];
+export const DEAL_EVENT_TYPE_LABELS: Record<DealEventType, string> = {
+  deal_started: "거래 시작",
+  stage_changed: "거래 단계 변경",
+  task_status_changed: "체크리스트 변경",
+  request_sent: "자료 요청",
+  file_shared: "파일 공유",
+  document_analyzed: "문서 분석 완료",
+  ai_analysis_completed: "AI 분석",
+  ai_risk_found: "AI 위험 발견",
+  ai_risk_resolved: "위험 해결",
+  terms_changed: "조건 변경",
+  report_generated: "보고서 생성",
+};
+
+/** 거래 메신저·AI 근거 연결 */
+export interface DealEvidence {
+  kind: "message" | "document" | "analysis" | "task" | "store";
+  id?: string | null;
+  label: string;
+  /** 메시지 순번 (메시지 근거일 때) */
+  seq?: number | null;
+}
+
+export interface DealTerms {
+  premium: number | null;
+  deposit: number | null;
+  monthlyRent: number | null;
+  handoverDate: string | null;
+  includedAssets: string | null;
+  other: string | null;
+}
+export const DEAL_TERM_LABELS: Record<keyof DealTerms, string> = {
+  premium: "희망 권리금",
+  deposit: "보증금",
+  monthlyRent: "월세",
+  handoverDate: "인수 희망일",
+  includedAssets: "인수 대상 시설·집기",
+  other: "기타 조건",
+};
+
+export interface Deal {
+  id: Uuid;
+  storeId: Uuid;
+  sellerId: Uuid;
+  buyerId: Uuid;
+  stage: DealStage;
+  terms: DealTerms;
+  aiAutoRun: boolean;
+  lastMessageAt: Timestamp | null;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface DealMessage {
+  id: Uuid;
+  seq: number;
+  dealId: Uuid;
+  senderId: Uuid | null;
+  kind: DealMessageKind;
+  body: string;
+  documentId: Uuid | null;
+  createdAt: Timestamp;
+}
+
+export interface DealTask {
+  id: Uuid;
+  dealId: Uuid;
+  key: string;
+  taskGroup: DealTaskGroup;
+  title: string;
+  assigneeRole: PartyRole;
+  requestTargetRole: PartyRole | null;
+  status: DealTaskStatus;
+  dueDate: string | null;
+  reason: string;
+  source: DealTaskSource;
+  documentType: DocumentType | null;
+  evidence: DealEvidence[];
+  sortOrder: number;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface DealTaskEvent {
+  id: Uuid;
+  taskId: Uuid;
+  dealId: Uuid;
+  actorKind: ActorKind;
+  actorId: Uuid | null;
+  fromStatus: DealTaskStatus | null;
+  toStatus: DealTaskStatus | null;
+  note: string;
+  evidence: DealEvidence[];
+  createdAt: Timestamp;
+}
+
+export interface DealAiFinding {
+  id: Uuid;
+  dealId: Uuid;
+  key: string;
+  level: RiskLevel;
+  category: string;
+  title: string;
+  detail: string;
+  certainty: FindingCertainty;
+  evidence: DealEvidence[];
+  status: FindingStatus;
+  firstRunId: Uuid;
+  lastRunId: Uuid;
+  resolvedRunId: Uuid | null;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface DealEvent {
+  id: Uuid;
+  dealId: Uuid;
+  actorKind: ActorKind;
+  actorId: Uuid | null;
+  type: DealEventType;
+  title: string;
+  detail: Record<string, unknown>;
+  createdAt: Timestamp;
+}
+
+export interface DealTermChange {
+  id: Uuid;
+  dealId: Uuid;
+  field: keyof DealTerms;
+  oldValue: unknown;
+  newValue: unknown;
+  changedBy: Uuid | null;
+  createdAt: Timestamp;
+}
