@@ -423,3 +423,107 @@ AI는 **두 번** 부른다. 숫자 비교·합계·등급은 AI가 아니라 �
 
 - Vercel은 요청 본문을 4.5MB까지만 받는다. 배포하면 큰 파일 업로드가 실패하므로, 서버가 Supabase Storage signed upload URL을 만들어 주고 브라우저가 Storage에 직접 올리는 방식으로 바꾼다.
 - `x-role` 헤더 대신 Supabase Auth 로그인으로 바꾸고, 거래방 참여자 테이블(`deal_members`)을 추가한다.
+
+## 10. 확장 설계: 매물·데이터룸·권한·에이전트 간 통신 (PRD 11번)
+
+> 1~9번은 지금까지의 설계(거래방 1개)다. 이번 확장은 1~9번을 지우지 않고 그 위에 더한다. 서로 다르면 이 10번이 기준이다.
+
+### 10.1 사용자 (데모 사용자)
+
+- 실제 로그인 대신 `users` 테이블에 데모 사용자 4명을 넣어 두고, 헤더에서 고른다: 양도인 A, 양도인 B, 양도인 C, 양수인.
+- 브라우저는 모든 요청에 `x-user-id` 헤더를 보낸다. 서버는 `lib/auth.ts`의 `getUser(request)`로 사용자를 찾고, 없으면 401.
+- 기존 `x-role`은 "지금 어느 역할 화면을 보는지"로만 남긴다. **권한 판단은 항상 `x-user-id`로 찾은 사용자 기준**이다.
+- 한 사용자가 양도인·양수인 둘 다 될 수 있다 (`users.roles`는 배열).
+- 이 방식은 누구나 헤더를 바꿀 수 있는 **시연용**이다. 화면에 "데모 사용자"라고 표시한다.
+
+### 10.2 DB 변경 계획
+
+기존 테이블은 지우지 않고 칸을 더한다. 없는 것만 새로 만든다.
+
+| 테이블 | 변경 | 내용 |
+|---|---|---|
+| `users` | 새로 | id, name, roles text[], is_sample |
+| `deals` | **확장 (= 매물 Listing)** | + seller_id, building_name, business_name, floor, total_floors, area_pyeong, is_franchise, premium_breakdown jsonb, themes text[], parking jsonb, status(`draft`/`published`), is_sample |
+| `documents` | 확장 | + category(`sales`/`cost`/`contract`/`facility`/`other`), access_level(L0~L3, 원본), summary_access_level(L0~L3, 추출 요약), extraction jsonb(재분석 방지), verification_status, updated_at |
+| `data_points` | 새로 | listing_id, document_id(원본 연결), key(예: `monthly_sales`), period, value numeric, unit, trust_level(점주 진술/자료 제출/교차 확인/외부 검증/AI 추정), access_level, source_note |
+| `reports` | 유지 (= Verification) | 매물별 교차 검증 결과 |
+| `buyer_profiles` | 새로 | user_id, budget_total, regions text[], business_types text[], target_monthly_profit, weekly_hours, experience, payback_months, notes |
+| `ndas` | 새로 | listing_id, buyer_id, version, status(`test_agreed`/`revoked`), agreed_at, revoked_at. **테스트 동의만 기록한다. 법적 전자서명 아님** |
+| `access_grants` | 새로 | listing_id, buyer_id, target_type(`document`/`data_point`), target_id, status(`requested`/`approved`/`rejected`/`revoked`), reason, decided_at, expires_at |
+| `agent_tasks` | 새로 | buyer_id, listing_ids uuid[](최대 3), status, created_at |
+| `agent_messages` | 새로 | task_id, listing_id, buyer_id, question_type, topic, question, status(10.4), answer_type, answer, evidence jsonb, grant_id, dedupe_key **unique**, ai_used boolean, error |
+| `comparison_reports` | 새로 | buyer_id, listing_ids, criteria jsonb(가중치 공개), result jsonb |
+| `audit_logs` | 새로 | actor_id, action(`view`/`download`/`answer`/`grant_change` 등), listing_id, target, created_at |
+| `messages` | 확장 | + buyer_id (매물별 양도인·양수인 대화방 구분) |
+
+- 모든 새 테이블도 RLS를 켜고 정책을 만들지 않는다. 서버만 secret 키로 접근한다 (5번 "권한"과 같은 방식).
+- 스키마는 `supabase/schema.sql`에 덧붙인다. 여러 번 실행해도 안전하게 `if not exists` / `add column if not exists`를 쓴다.
+
+### 10.3 권한 검사 (`lib/access.ts`, 서버 전용)
+
+`canAccess(user, listing, item, kind)` 하나로 판단한다. `kind`는 `raw`(원본 파일) 또는 `summary`(추출 요약).
+
+| 등급 | 양도인 본인 | 양수인 |
+|---|---|---|
+| L0 | O | O |
+| L1 | O | NDA `test_agreed` 상태면 O |
+| L2 | O | NDA + 해당 자료 `access_grants`가 `approved`이고 만료 전이면 O |
+| L3 | O | X (양수인 AI 검색 대상에서도 제외) |
+
+- 목록·상세·다운로드·AI 답변 모두 이 함수를 거친다. 권한 없는 항목은 응답 JSON에서 빼고, AI 입력에도 넣지 않는다.
+- 원본 다운로드는 권한 확인 후 Storage signed URL(60초)을 준다.
+- 열람·다운로드·권한 변경은 `audit_logs`에 남긴다.
+
+### 10.4 에이전트 간 통신 흐름 (`lib/agents.ts`, 서버 전용)
+
+```
+양수인이 "AI 실사 시작" (매물 최대 3개)
+ → POST /api/agent/tasks
+   1. [코드] 매물별 빠진 정보 계산: 양수인 조건에 필요한 key 목록 - 그 매물에서 이 양수인이 볼 수 있는 data_points
+   2. [AI] 매물별 질문 문장 만들기 (빠진 정보만). AI 실패 시 정해진 질문 문구 사용
+   3. [코드] dedupe_key = buyer + listing + question_type + topic → 이미 있으면 건너뜀. status = 전달 대기
+   4. 세 매물을 동시에(Promise.all) 처리: 각 질문을 그 매물의 양도인 AI에 전달
+ → 양도인 AI (sellerAgentAnswer)
+   5. [코드] question_type → 필요한 data key 목록
+   6. [코드] 그 매물(listing_id)의 data_points만 조회 → canAccess로 거른다
+   7-a. 허용된 값이 있음 → [AI] 허용된 값만 넣어 답변 문장 (실패 시 정해진 문구) → 답변 완료, evidence 저장
+   7-b. 값은 있는데 권한 없음 → access_grants에 requested 생성 → 양도인 승인 대기. AI에 그 값을 넘기지 않는다
+   7-c. 값이 없음 → 자료 없음 (또는 추가 자료 요청)
+ → 양도인이 승인 (PATCH /api/grants/[id])
+   8. 승인된 질문만 6~7-a를 다시 실행 → 답변 완료
+ → 양수인 AI 통합
+   9. [코드] 매물 간 차이, 주장 vs 자료 차이 계산 → 비교표 갱신
+   10. [AI] 통합 설명·다음 추천 질문 (실패 시 생략하고 "AI 요약 없음")
+```
+
+질문 상태(`agent_messages.status`): `created`(질문 생성) → `queued`(전달 대기) → `answering`(양도인 AI 응답 중) → `pending_approval`(양도인 승인 대기) / `needs_documents`(추가 자료 요청) → `answered`(답변 완료) / `rejected`(거절) / `error`(오류)
+
+답변 종류(`answer_type`): `auto`(자동 응답), `needs_approval`(양도인 승인 필요), `needs_documents`(추가 자료 필요), `no_data`(자료 없음), `denied`(접근 거부)
+
+### 10.5 엔드포인트 (추가)
+
+| 메서드·경로 | 하는 일 | 권한 |
+|---|---|---|
+| GET `/api/me` | 현재 데모 사용자 | 누구나 |
+| GET/POST `/api/listings` | 매물 목록(권한 필터 + 추천 점수) / 매물 등록 | 등록은 양도인 |
+| GET/PATCH `/api/listings/[id]` | 데이터룸 (권한 필터) / 기본정보 수정 | 수정은 소유 양도인 |
+| POST `/api/listings/[id]/documents` | 자료 업로드 + 추출 저장 | 소유 양도인 |
+| PATCH `/api/documents/[id]` | 공개 등급·추출값 수정 | 소유 양도인 |
+| GET `/api/documents/[id]/download` | signed URL | canAccess(raw) |
+| POST `/api/listings/[id]/nda` | NDA 테스트 동의 / 철회 | 양수인 |
+| GET `/api/listings/[id]/requests` | 구매자 요청 목록 | 소유 양도인 |
+| PATCH `/api/grants/[id]` | 승인·거절·회수 | 소유 양도인 |
+| GET/PUT `/api/buyer/profile` | 인수 프로필 | 양수인 본인 |
+| POST `/api/agent/tasks` | 실사 시작 (질문 생성·전달·답변) | 양수인 |
+| GET `/api/agent/tasks/[id]` | 질문·답변·상태 목록 | 그 양수인 |
+| GET `/api/compare?ids=a,b,c` | 비교표 (객관 + 개인 맞춤) | 양수인, 권한 필터 |
+| POST `/api/demo` | 샘플 매물 3개 + 데모 사용자 생성 (샘플 표시) | 누구나 |
+
+에러 응답은 지금처럼 `{ error }` + 400/401/403/404/500/502.
+
+### 10.6 추천·비교 계산 (코드)
+
+- 추천 점수 항목: 예산(권리금+보증금+추가 투자비 ≤ 총예산), 지역, 업종, 목표 수익과 확인된 수익 차이, 근무시간, 신뢰 수준, 위험. **각 항목 점수와 가중치를 화면에 공개**한다.
+- 자료가 부족한 매물은 빼지 않고 "정보 부족"으로 표시한다.
+- 비교표 값이 없으면 0이 아니라 `null` → 화면에 "미확인". 기준이 다른 매출(승인액/정산액)은 합치지 않는다.
+- 투자금 회수기간 = 초기 투자금 ÷ 월 순수익 (확인된 값만으로 계산, 추정값이 섞이면 "AI 추정"으로 표시).
