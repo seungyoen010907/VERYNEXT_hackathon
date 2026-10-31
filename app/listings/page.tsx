@@ -95,7 +95,7 @@ function DemoButton({ onDone }: { onDone: () => void }) {
         type="button"
         onClick={run}
         disabled={busy}
-        title="양도인 A·B·C의 샘플 매물과 양수인 조건을 다시 만들어요. 샘플이 아닌 매물은 건드리지 않아요."
+        title="샘플 매물 3개와 양수인 조건을 다시 만들어요. 샘플이 아닌 매물은 건드리지 않아요."
         className="rounded-lg bg-card px-4 py-2 text-sm font-medium disabled:opacity-60"
       >
         {busy ? "샘플 만드는 중... (최대 1분)" : "샘플 데이터로 시연하기"}
@@ -210,7 +210,7 @@ function BuyerExplore({ data }: { data: ListResponse }) {
         <div>
           <p className="font-medium">비교·실사 대상 {selected.length}/{MAX_COMPARE}</p>
           <p className="text-xs text-muted">
-            최대 3개를 골라 AI 실사를 시작하거나 나란히 비교해요.{" "}
+            인수 조건을 저장하면 AI가 3개를 자동으로 골라 실사를 시작해요. 여기서는 직접 바꿔 고를 수 있어요.{" "}
             <Link href="/buyer/profile" className="text-accent">
               인수 조건 {data.has_profile ? "수정" : "입력"}
             </Link>

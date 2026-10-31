@@ -2,6 +2,7 @@
 
 // 매물 비교 (PRD 9번 화면 8, F05): 최대 3개를 나란히. 객관 비교 / 내 조건 맞춤 두 관점.
 // 값이 없으면 "미확인", 숫자마다 근거(출처·계산 가정)를 펼쳐 볼 수 있다.
+// AI 실사로 새 정보가 들어오면 반영되도록 10초마다 새로 불러온다.
 
 import Link from "next/link";
 import { Fragment, useEffect, useState } from "react";
@@ -53,9 +54,13 @@ export default function CompareView({ idsParam }: { idsParam: string[] }) {
 
   useEffect(() => {
     if (!key) return;
-    apiFetch<Comparison>(`/api/compare?ids=${key}`)
-      .then((d) => (setData(d), setError(null)))
-      .catch((e: Error) => setError(e.message));
+    const load = () =>
+      apiFetch<Comparison>(`/api/compare?ids=${key}`)
+        .then((d) => (setData(d), setError(null)))
+        .catch((e: Error) => setError(e.message));
+    load();
+    const t = setInterval(load, 10_000);
+    return () => clearInterval(t);
   }, [key, user.id]);
 
   if (!key) {

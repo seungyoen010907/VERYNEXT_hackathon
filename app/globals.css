@@ -29,3 +29,17 @@ body {
   background: var(--bg);
   color: var(--text);
 }
+
+/* 실사 화면: 새 값이 들어온 칸을 잠깐 칠해서 "방금 바뀜"을 보여준다 */
+@keyframes cell-flash {
+  from {
+    background-color: color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+.cell-flash {
+  animation: cell-flash 2.5s ease-out;
+  border-radius: 4px;
+}

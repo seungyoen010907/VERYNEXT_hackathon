@@ -430,7 +430,7 @@ AI는 **두 번** 부른다. 숫자 비교·합계·등급은 AI가 아니라 �
 
 ### 10.1 사용자 (데모 사용자)
 
-- 실제 로그인 대신 `users` 테이블에 데모 사용자 4명을 넣어 두고, 헤더에서 고른다: 양도인 A, 양도인 B, 양도인 C, 양수인.
+- 실제 로그인 대신 `users` 테이블에 데모 사용자 4명을 넣어 두고, 헤더에서는 양도인(=양도인 A)과 양수인 둘만 고른다. 양도인 B·C는 샘플 매물의 주인으로만 쓰고 헤더에는 없다.
 - 브라우저는 모든 요청에 `x-user-id` 헤더를 보낸다. 서버는 `lib/auth.ts`의 `getUser(request)`로 사용자를 찾고, 없으면 401.
 - 기존 `x-role`은 "지금 어느 역할 화면을 보는지"로만 남긴다. **권한 판단은 항상 `x-user-id`로 찾은 사용자 기준**이다.
 - 한 사용자가 양도인·양수인 둘 다 될 수 있다 (`users.roles`는 배열).
@@ -477,8 +477,10 @@ AI는 **두 번** 부른다. 숫자 비교·합계·등급은 AI가 아니라 �
 ### 10.4 에이전트 간 통신 흐름 (`lib/agents.ts`, 서버 전용)
 
 ```
-양수인이 "AI 실사 시작" (매물 최대 3개)
- → POST /api/agent/tasks
+양수인이 AI 실사 센터에서 "추천 매물로 AI 실사 시작" (POST /api/agent/tasks { auto: true } → 추천 상위 최대 3개, 예산 초과 제외)
+또는 "AI 실사 시작" (매물 최대 3개 직접 선택)
+ → POST /api/agent/tasks: 실사(status=running)만 만들고 바로 응답한다. 아래 1~7은 응답 뒤 after()로 진행된다.
+   화면은 GET /api/agent/tasks/[id]를 진행 중 2초마다 불러와 대화창에 질문 → 답하는 중 → 답을 차례로 붙인다.
    1. [코드] 매물별 빠진 정보 계산: 양수인 조건에 필요한 key 목록 - 그 매물에서 이 양수인이 볼 수 있는 data_points
    2. [AI] 매물별 질문 문장 만들기 (빠진 정보만). AI 실패 시 정해진 질문 문구 사용
    3. [코드] dedupe_key = buyer + listing + question_type + topic → 이미 있으면 건너뜀. status = 전달 대기
@@ -490,7 +492,11 @@ AI는 **두 번** 부른다. 숫자 비교·합계·등급은 AI가 아니라 �
    7-b. 값은 있는데 권한 없음 → access_grants에 requested 생성 → 양도인 승인 대기. AI에 그 값을 넘기지 않는다
    7-c. 값이 없음 → 자료 없음 (또는 추가 자료 요청)
  → 양도인이 승인 (PATCH /api/grants/[id])
-   8. 승인된 질문만 6~7-a를 다시 실행 → 답변 완료
+   8. 승인된 질문을 전달 대기로 바꾸고(바로 응답), 응답 뒤 6~7-a를 다시 실행 → 답변 완료
+ → 양수인이 NDA 테스트 동의 (POST /api/listings/[id]/nda): NDA 때문에 거부된 질문을 응답 뒤 자동으로 다시 묻는다
+ → 양도인이 자료 업로드·재분석: 그 매물의 "추가 자료 필요" 질문을 (모든 양수인에 대해) 응답 뒤 다시 답한다
+ → 양도인이 직접 답변 (POST /api/agent/messages/[id]/reply): answer_type = seller_reply, 비교표 숫자는 바꾸지 않는다
+ ※ 권한이 줄어드는 처리(거절·회수·NDA 철회)는 늦추지 않고 응답 전에 바로 반영한다
  → 양수인 AI 통합
    9. [코드] 매물 간 차이, 주장 vs 자료 차이 계산 → 비교표 갱신
    10. [AI] 통합 설명·다음 추천 질문 (실패 시 생략하고 "AI 요약 없음")
@@ -498,7 +504,9 @@ AI는 **두 번** 부른다. 숫자 비교·합계·등급은 AI가 아니라 �
 
 질문 상태(`agent_messages.status`): `created`(질문 생성) → `queued`(전달 대기) → `answering`(양도인 AI 응답 중) → `pending_approval`(양도인 승인 대기) / `needs_documents`(추가 자료 요청) → `answered`(답변 완료) / `rejected`(거절) / `error`(오류)
 
-답변 종류(`answer_type`): `auto`(자동 응답), `needs_approval`(양도인 승인 필요), `needs_documents`(추가 자료 필요), `no_data`(자료 없음), `denied`(접근 거부)
+답변 종류(`answer_type`): `auto`(자동 응답), `needs_approval`(양도인 승인 필요), `needs_documents`(추가 자료 필요), `no_data`(자료 없음), `denied`(접근 거부), `seller_reply`(양도인 직접 답변, 점주 진술), `needs_seller`(자료로 답할 수 없어 양도인에게 넘긴 직접 질문)
+
+직접 질문(`question_type = "custom:주제,..."`): 내 AI가 고른 범위를 적는다. 주제는 sales·cost·operation·lease·facility(자료), listing(공개 기본정보 L0), seller(자료로 답할 수 없어 양도인이 답할 부분). 범위는 AI 분류(`classifyQuestion`)와 키워드 분류를 합쳐서 정한다(빠뜨리지 않게). 양도인 AI에는 그 범위의 허용된 값만 넘긴다. seller만 있으면 `needs_seller`, 자료와 seller가 섞이면 자료로 답하고 "양도인에게 전달"을 덧붙이며, 양도인 답변은 기존 답 뒤에 "점주 진술"로 붙는다.
 
 ### 10.5 엔드포인트 (추가, 구현 완료)
 
@@ -512,13 +520,15 @@ AI는 **두 번** 부른다. 숫자 비교·합계·등급은 AI가 아니라 �
 | POST `/api/documents/[id]/analyze` | AI 분석 실패 자료 다시 분석 | 소유 양도인 |
 | GET `/api/documents/[id]/download` | 60초 signed URL | canSee(원본) |
 | PATCH `/api/data-points/[id]` | 추출값 수정 → 신뢰 수준 "점주 진술", 원래 값 기록 | 소유 양도인 |
-| POST `/api/listings/[id]/nda` | NDA 테스트 동의 / 철회 (철회하면 AI 답 다시 계산) | 양수인 |
+| POST `/api/listings/[id]/nda` | NDA 테스트 동의 / 철회 (동의하면 멈춘 질문 자동 재질문, 철회하면 AI 답 다시 계산) | 양수인 |
 | GET/POST `/api/listings/[id]/requests` | 구매자 요청 관리(요청·NDA·AI 질문·기록) / 잠긴 자료 열람 요청 | 조회는 소유 양도인, 요청은 양수인 |
 | PATCH `/api/grants/[id]` | 승인·거절·회수 → 기다리던 AI 질문 자동 재처리 | 소유 양도인 |
 | GET/PUT `/api/buyer/profile` | 인수 조건 | 양수인 본인 |
-| GET/POST `/api/agent/tasks` | 내 실사 목록 / 실사 시작 (매물 최대 3개 동시) | 양수인 |
-| GET `/api/agent/tasks/[id]` | 질문·답·상태 + 코드 비교 + 저장된 AI 통합 분석 | 그 양수인 |
-| POST `/api/agent/tasks/[id]/rerun` | 거부·자료 없음·오류 질문 다시 묻기 | 그 양수인 |
+| GET/POST `/api/agent/tasks` | 내 실사 목록 / 실사 시작 (매물 최대 3개 동시, `{auto:true}`면 추천 상위 자동 선택). 바로 `{task_id, listing_ids}` 응답, 진행은 응답 뒤 | 양수인 |
+| GET `/api/agent/tasks/[id]` | 질문·답·상태 + 코드 비교 + 저장된 AI 통합 분석 + 대화창 사건(NDA 동의 시각, 열람 승인·거절 시각) | 그 양수인 |
+| POST `/api/agent/tasks/[id]/rerun` | 거부·자료 없음·오류 질문 다시 묻기 (진행 중이면 409) | 그 양수인 |
+| POST `/api/agent/tasks/[id]/ask` | 대화창 직접 질문 `{listing_id, question}` (2~300자, 그 실사의 매물만). 바로 저장(created)하고 응답 뒤 범위 확인 → 답 | 그 양수인 |
+| POST `/api/agent/messages/[id]/reply` | 양수인 AI 질문에 양도인이 글로 직접 답하기 | 그 매물의 양도인 |
 | POST `/api/agent/tasks/[id]/summary` | AI 통합 분석 (숫자는 코드 계산값만) | 그 양수인 |
 | GET `/api/compare?ids=a,b,c` | 비교표 (객관 + 개인 맞춤, 근거 포함) | 볼 수 있는 자료만 |
 | GET `/api/dashboard` | 역할별 대시보드 숫자 | 로그인한 데모 사용자 |
@@ -532,7 +542,7 @@ AI는 **두 번** 부른다. 숫자 비교·합계·등급은 AI가 아니라 �
 - AI 교차 검증 리포트는 파일 없는 데이터룸 항목(`documents.kind = 'report'`)으로 저장해서 공개 등급을 따로 정한다. 리포트에는 매출 자료 전체의 월별 숫자가 들어 있다.
 - 권한이 줄면(승인 회수, NDA 철회) 이미 받은 AI 답도 지금 권한으로 다시 계산한다. 거절·회수된 자료는 AI가 다시 요청하지 않는다.
 - 샘플 파일의 AI 추출 결과는 `samples/extractions.json`에 저장해 재사용한다.
-- 통합 테스트: `npm run dev` 상태에서 `node scripts/e2e.mjs` (46개 확인 항목).
+- 통합 테스트: `npm run dev` 상태에서 `node scripts/e2e.mjs` (61개 확인 항목). 실사가 응답 뒤에 진행되므로 스크립트는 끝날 때까지 기다린 뒤 확인한다.
 
 ### 10.6 추천·비교 계산 (코드)
 

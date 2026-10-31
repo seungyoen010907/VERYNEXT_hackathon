@@ -1,7 +1,9 @@
 "use client";
 
 // 양수인 인수 조건 (PRD 9번 화면 5). 양수인 AI가 추천·질문·비교에 이 조건을 쓴다. 언제든 고칠 수 있다.
+// 저장만 한다. AI 실사는 AI 실사 센터에서 버튼을 눌러 시작한다.
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useUser } from "@/components/RoleSwitch";
 import { apiFetch } from "@/lib/api-client";
@@ -69,7 +71,7 @@ export default function BuyerProfilePage() {
           notes: form!.notes,
         }),
       });
-      setMsg("저장했어요. 추천 점수와 AI 실사 질문에 바로 반영돼요.");
+      setMsg("저장했어요. AI 실사 센터에서 추천 매물로 실사를 시작할 수 있어요.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "저장하지 못했어요.");
     } finally {
@@ -81,7 +83,7 @@ export default function BuyerProfilePage() {
     <form onSubmit={save} className="mx-auto max-w-2xl space-y-6">
       <div>
         <h1 className="text-xl font-bold">인수 조건</h1>
-        <p className="mt-1 text-sm text-muted">내 AI 에이전트가 이 조건으로 매물을 추천하고, 매물마다 필요한 질문을 만들어요.</p>
+        <p className="mt-1 text-sm text-muted">내 AI 에이전트가 이 조건으로 맞는 매물을 최대 3개 고르고, 각 매물의 양도인 AI와 실사 대화를 해요.</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -129,7 +131,14 @@ export default function BuyerProfilePage() {
       </div>
 
       {error && <p className="rounded-lg border border-warn/30 bg-warn/10 p-3 text-sm text-warn">{error}</p>}
-      {msg && <p className="rounded-lg bg-accent/10 p-3 text-sm text-accent">{msg}</p>}
+      {msg && (
+        <p className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-accent/10 p-3 text-sm text-accent">
+          {msg}
+          <Link href="/diligence?new=1" className="rounded-lg bg-accent px-3 py-1.5 font-medium text-white">
+            AI 실사 센터로
+          </Link>
+        </p>
+      )}
       <button type="submit" disabled={saving} className="w-full rounded-lg bg-accent py-3 font-medium text-white disabled:opacity-60">
         {saving ? "저장하는 중..." : "인수 조건 저장"}
       </button>

@@ -1,7 +1,8 @@
 // POST: 데이터룸에 자료 업로드 (소유 양도인) → Storage 저장 → AI 분석 → 추출값 저장
 // AI가 실패해도 자료는 저장된다 (PRD 11.5).
 
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
+import { onDocumentAdded } from "@/lib/agents";
 import { getUser } from "@/lib/auth";
 import { handleError, HttpError } from "@/lib/http";
 import { analyzeDocument, assertOwner, createDocument, getListing } from "@/lib/listings";
@@ -36,6 +37,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/listings/[i
 
     const doc = await createDocument(id, file.name, new Uint8Array(await file.arrayBuffer()), category as DocCategory);
     const analyzed = await analyzeDocument(doc);
+    after(await onDocumentAdded(id)); // "추가 자료 필요"로 멈춘 양수인 AI 질문에 응답 뒤 다시 답한다
     return NextResponse.json({ document: { ...analyzed, storage_path: undefined, deal_id: undefined } }, { status: 201 });
   } catch (e) {
     return handleError(e);

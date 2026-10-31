@@ -1,6 +1,6 @@
 "use client";
 
-// 구매자 요청 관리 (PRD 9번 화면 4): 열람 요청 승인·거절, NDA 상태, 양수인 AI 질문, 열람 기록
+// 구매자 요청 관리 (PRD 9번 화면 4): 열람 요청 승인·거절, NDA 상태, 양수인 AI 질문(직접 답하기), 열람 기록
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -8,7 +8,7 @@ import { useUser } from "@/components/RoleSwitch";
 import Tag from "@/components/Tag";
 import { apiFetch } from "@/lib/api-client";
 import { formatTime } from "@/lib/format";
-import { ACCESS_LABEL, AGENT_STATUS_LABEL, ANSWER_TYPE_LABEL, AUDIT_LABEL, TOPIC_LABEL } from "@/lib/labels";
+import { ACCESS_LABEL, AGENT_STATUS_LABEL, ANSWER_TYPE_LABEL, AUDIT_LABEL, customTopicsLabel, TOPIC_LABEL } from "@/lib/labels";
 import type { AccessLevel, GrantStatus } from "@/lib/types";
 
 type Grant = {
@@ -28,6 +28,7 @@ type Question = {
   created_at: string;
   updated_at: string;
   buyer_id: string;
+  question_type: string;
   topic: string;
   question: string;
   status: string;
@@ -62,6 +63,18 @@ export default function RequestsView({ id }: { id: string }) {
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "처리하지 못했어요.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function reply(q: Question, answer: string) {
+    setBusy(q.id + "reply");
+    try {
+      await apiFetch(`/api/agent/messages/${q.id}/reply`, { method: "POST", body: JSON.stringify({ answer }) });
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "답하지 못했어요.");
     } finally {
       setBusy(null);
     }
@@ -136,6 +149,13 @@ export default function RequestsView({ id }: { id: string }) {
       </Section>
 
       <Section title={`양수인 AI가 보낸 질문 (${data.questions.length})`}>
+        <p className="mb-2 text-xs text-muted">
+          &quot;추가 자료 요청&quot; 질문은{" "}
+          <Link href={`/listings/${id}`} className="text-accent">
+            데이터룸
+          </Link>
+          에 자료를 올리면 내 AI가 자동으로 다시 답해요. 자료 없이 글로 직접 답할 수도 있어요 (양수인에게는 &quot;점주 진술&quot;로 보여요).
+        </p>
         {data.questions.length === 0 ? (
           <Empty>아직 받은 AI 질문이 없어요.</Empty>
         ) : (
@@ -143,7 +163,16 @@ export default function RequestsView({ id }: { id: string }) {
             {data.questions.map((q) => (
               <tr key={q.id} className="border-t border-bg align-top">
                 <td className="px-4 py-3 whitespace-nowrap">{name(q.buyer_id)}</td>
-                <td className="px-4 py-3 whitespace-nowrap">{TOPIC_LABEL[q.topic] ?? q.topic}</td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  {q.question_type.startsWith("custom") ? (
+                    <>
+                      <Tag tone="outline">양수인 직접 질문</Tag>
+                      <span className="mt-1 block text-xs text-muted">{customTopicsLabel(q.question_type) || "자료 범위 밖"}</span>
+                    </>
+                  ) : (
+                    (TOPIC_LABEL[q.topic] ?? q.topic)
+                  )}
+                </td>
                 <td className="px-4 py-3">{q.question}</td>
                 <td className="px-4 py-3">
                   <Tag tone={q.status === "answered" ? "outline" : q.status === "error" || q.status === "rejected" ? "warn" : "caution"}>
@@ -151,7 +180,10 @@ export default function RequestsView({ id }: { id: string }) {
                   </Tag>
                   {q.answer_type && <span className="mt-1 block text-xs text-muted">{ANSWER_TYPE_LABEL[q.answer_type] ?? q.answer_type}</span>}
                 </td>
-                <td className="px-4 py-3 text-muted">{q.answer ?? "-"}</td>
+                <td className="px-4 py-3 text-muted">
+                  {q.answer ?? "-"}
+                  {(q.status === "needs_documents" || q.status === "error" || (q.question_type.replace(/^custom:/, "").split(",").includes("seller") && q.answer_type === "auto" && !q.answer?.includes("양도인 직접 답변"))) && <ReplyBox busy={busy === q.id + "reply"} onSend={(text) => reply(q, text)} />}
+                </td>
                 <td className="px-4 py-3 whitespace-nowrap text-muted">{formatTime(q.updated_at)}</td>
               </tr>
             ))}
@@ -194,6 +226,31 @@ export default function RequestsView({ id }: { id: string }) {
         )}
       </Section>
     </div>
+  );
+}
+
+function ReplyBox({ busy, onSend }: { busy: boolean; onSend: (text: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="mt-1.5 block text-xs font-medium text-accent">
+        직접 답하기
+      </button>
+    );
+  }
+  return (
+    <span className="mt-2 block space-y-1.5">
+      <textarea value={text} onChange={(e) => setText(e.target.value)} maxLength={1000} rows={3} placeholder="양수인에게 보낼 답을 적어주세요" className="w-full rounded-lg border border-border bg-card px-2 py-1.5 text-sm text-text" />
+      <span className="flex gap-3 text-xs">
+        <button type="button" disabled={busy || !text.trim()} onClick={() => onSend(text)} className="font-medium text-accent disabled:opacity-50">
+          {busy ? "보내는 중..." : "답 보내기"}
+        </button>
+        <button type="button" onClick={() => setOpen(false)} className="text-muted">
+          취소
+        </button>
+      </span>
+    </span>
   );
 }
 

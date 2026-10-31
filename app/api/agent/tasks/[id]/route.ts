@@ -1,4 +1,5 @@
 // GET: AI 실사 상세 — 매물별 질문·답·상태 + 코드로 계산한 통합 비교 + 저장된 AI 통합 분석
+// 대화창에 끼워 넣을 사건(NDA 동의 시각, 열람 승인·거절 시각)도 같이 준다.
 
 import { NextResponse } from "next/server";
 import type { AgentMessage } from "@/lib/agents";
@@ -18,21 +19,25 @@ export async function GET(request: Request, ctx: RouteContext<"/api/agent/tasks/
     if (!task || task.buyer_id !== user.id) throw new HttpError(404, "실사를 찾을 수 없어요.");
 
     const listingIds = task.listing_ids as string[];
-    const [messages, summary, comparison, ndas] = await Promise.all([
+    const [messages, summary, comparison, ndas, grants] = await Promise.all([
       supabase.from("agent_messages").select("*").eq("buyer_id", user.id).in("listing_id", listingIds).order("created_at"),
       supabase.from("comparison_reports").select("created_at, result").eq("buyer_id", user.id).contains("criteria", { task_id: id }).order("created_at", { ascending: false }).limit(1),
       buildComparison(user, listingIds),
-      supabase.from("ndas").select("listing_id, status").eq("buyer_id", user.id).in("listing_id", listingIds),
+      supabase.from("ndas").select("listing_id, status, agreed_at").eq("buyer_id", user.id).in("listing_id", listingIds),
+      supabase.from("access_grants").select("id, listing_id, status, created_at, decided_at").eq("buyer_id", user.id).in("listing_id", listingIds),
     ]);
     if (messages.error) throw messages.error;
     if (summary.error) throw summary.error;
     if (ndas.error) throw ndas.error;
+    if (grants.error) throw grants.error;
 
     return NextResponse.json({
       task,
       messages: messages.data as AgentMessage[],
       comparison,
       nda: Object.fromEntries((ndas.data ?? []).map((n) => [n.listing_id, n.status])),
+      nda_agreed_at: Object.fromEntries((ndas.data ?? []).filter((n) => n.status === "test_agreed").map((n) => [n.listing_id, n.agreed_at])),
+      grants: grants.data ?? [],
       ai_summary: summary.data?.[0] ?? null,
     });
   } catch (e) {

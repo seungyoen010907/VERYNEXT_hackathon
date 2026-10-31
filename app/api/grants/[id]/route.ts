@@ -1,6 +1,6 @@
 // PATCH: 열람 요청 승인·거절·회수 (그 매물의 양도인). 승인은 30일 뒤 만료된다.
 
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { onGrantDecided } from "@/lib/agents";
 import { audit } from "@/lib/audit";
 import { getUser } from "@/lib/auth";
@@ -42,8 +42,9 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/grants/[id
     const { data: doc } = await supabase.from("documents").select("file_name").eq("id", grant.target_id).maybeSingle();
     const target = `${doc?.file_name ?? "자료"} ${grant.target_type === "document" ? "원본" : "요약"}`;
     await audit(user.id, `grant_${body.action}` as "grant_approve" | "grant_reject" | "grant_revoke", grant.listing_id, target);
-    // 이 승인을 기다리던 양수인 AI 질문을 다시 처리한다 (승인되면 답, 거절되면 거절)
-    await onGrantDecided(data);
+    // 이 승인을 기다리던 양수인 AI 질문을 다시 처리한다 (거절·회수는 바로, 승인 뒤 재응답은 응답 뒤에)
+    const run = await onGrantDecided(data);
+    if (run) after(run);
     return NextResponse.json({ grant: data });
   } catch (e) {
     return handleError(e);

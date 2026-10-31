@@ -1,6 +1,7 @@
 // POST: AI 분석이 실패한 자료를 다시 분석한다 (소유 양도인). 이미 분석된 자료는 다시 분석하지 않는다.
 
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
+import { onDocumentAdded } from "@/lib/agents";
 import { handleError } from "@/lib/http";
 import { analyzeDocument, getOwnedDocument } from "@/lib/listings";
 
@@ -11,6 +12,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/documents/[
     const { id } = await ctx.params;
     const { doc } = await getOwnedDocument(request, id);
     const analyzed = await analyzeDocument(doc);
+    if (doc.deal_id) after(await onDocumentAdded(doc.deal_id)); // 멈춘 양수인 AI 질문에 다시 답한다
     return NextResponse.json({ document: { ...analyzed, storage_path: undefined, deal_id: undefined } });
   } catch (e) {
     return handleError(e);

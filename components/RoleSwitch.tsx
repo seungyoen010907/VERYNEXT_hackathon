@@ -1,10 +1,10 @@
 "use client";
 
-// 헤더의 데모 사용자 전환 (양도인 A·B·C / 양수인). 실제 로그인 대신 쓰는 시연용 방식 (docs/API.md 10.1).
+// 헤더의 데모 사용자 전환 (양도인 / 양수인). 실제 로그인 대신 쓰는 시연용 방식 (docs/API.md 10.1).
 // 고른 사용자 id는 localStorage에 저장하고, 다른 컴포넌트는 useUser()·useRole()로 읽는다.
 
 import { createContext, useContext, useSyncExternalStore } from "react";
-import { DEFAULT_USER_ID, DEMO_USERS, findDemoUser, type DemoUser } from "@/lib/demo-users";
+import { DEFAULT_USER_ID, SWITCH_USERS, findDemoUser, type DemoUser } from "@/lib/demo-users";
 import type { Role } from "@/lib/types";
 
 const STORAGE_KEY = "demo-user-id";
@@ -13,7 +13,8 @@ const CHANGE_EVENT = "demo-user-change";
 export function readUserId(): string {
   try {
     const id = localStorage.getItem(STORAGE_KEY);
-    return findDemoUser(id) ? (id as string) : DEFAULT_USER_ID;
+    // 예전에 고른 양도인 B·C가 남아 있으면 기본값(양수인)으로 돌린다
+    return SWITCH_USERS.some((u) => u.id === id) ? (id as string) : DEFAULT_USER_ID;
   } catch {
     return DEFAULT_USER_ID;
   }
@@ -66,7 +67,7 @@ export default function RoleSwitch() {
     <div className="flex items-center gap-2">
       <span className="hidden text-xs text-muted sm:inline">데모 사용자</span>
       <div className="flex rounded-lg bg-bg p-0.5 text-sm whitespace-nowrap" role="group" aria-label="데모 사용자 전환">
-        {DEMO_USERS.map((u) => (
+        {SWITCH_USERS.map((u) => (
           <button
             key={u.id}
             type="button"

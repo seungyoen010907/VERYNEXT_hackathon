@@ -83,7 +83,7 @@ export default function NewListingPage() {
   if (user.role !== "seller") {
     return (
       <p className="mx-auto max-w-2xl rounded-xl bg-card p-6 text-center text-sm text-muted">
-        매물 등록은 양도인만 할 수 있어요. 헤더에서 양도인 A·B·C 중 하나를 골라주세요.
+        매물 등록은 양도인만 할 수 있어요. 헤더에서 양도인을 골라주세요.
       </p>
     );
   }

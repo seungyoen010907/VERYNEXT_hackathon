@@ -94,7 +94,20 @@ export const TOPIC_LABEL: Record<string, string> = {
   lease: "임대차 조건",
   facility: "시설·인수인계",
   documents: "자료 추가 요청",
+  listing: "매물 기본정보",
+  seller: "양도인 확인",
 };
+
+// 양수인이 직접 쓴 질문(question_type "custom:주제,...")이 다루는 자료 범위 이름. 확인 전이면 null
+export function customTopicsLabel(questionType: string): string | null {
+  if (!questionType.startsWith("custom:")) return null;
+  return questionType
+    .slice("custom:".length)
+    .split(",")
+    .filter(Boolean)
+    .map((t) => (TOPIC_LABEL[t] ?? t).replace(/ 확인$/, ""))
+    .join("·");
+}
 
 export const AGENT_STATUS_LABEL: Record<string, string> = {
   created: "질문 생성",
@@ -113,6 +126,8 @@ export const ANSWER_TYPE_LABEL: Record<string, string> = {
   needs_documents: "추가 자료 필요",
   no_data: "자료 없음",
   denied: "접근 거부",
+  seller_reply: "양도인 직접 답변",
+  needs_seller: "양도인 확인 필요",
 };
 
 export const AUDIT_LABEL: Record<string, string> = {
