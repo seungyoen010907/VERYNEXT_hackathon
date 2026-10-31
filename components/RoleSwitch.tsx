@@ -59,7 +59,7 @@ export default function RoleSwitch() {
   const options: Role[] = ["seller", "buyer"];
 
   return (
-    <div className="flex rounded-lg border border-border bg-card p-0.5 text-sm" role="group" aria-label="역할 전환">
+    <div className="flex rounded-lg bg-bg p-0.5 text-sm" role="group" aria-label="역할 전환">
       {options.map((r) => (
         <button
           key={r}

@@ -13,19 +13,19 @@ export default function Roadmap({ steps }: { steps: RoadmapStep[] }) {
               <span
                 className={
                   "absolute top-3 right-1/2 h-0.5 w-full -translate-y-1/2 " +
-                  (step.status === "todo" ? "bg-border" : "bg-accent")
+                  (step.status === "todo" ? "bg-card" : "bg-accent/40")
                 }
                 aria-hidden
               />
             )}
             <span
               className={
-                "relative z-10 flex size-6 items-center justify-center rounded-full border text-xs " +
+                "relative z-10 flex size-6 items-center justify-center rounded-full text-xs " +
                 (step.status === "done"
-                  ? "border-accent bg-card text-accent"
+                  ? "bg-card text-accent"
                   : step.status === "current"
-                    ? "border-accent bg-accent font-bold text-white"
-                    : "border-border bg-card text-muted")
+                    ? "bg-accent font-bold text-white"
+                    : "bg-card text-muted")
               }
             >
               {step.status === "done" ? "✓" : i + 1}

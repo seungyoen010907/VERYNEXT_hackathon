@@ -1,7 +1,8 @@
 "use client";
 
-// 거래방 한 화면 (docs/DESIGN.md 4번):
-// 제목 → 매물 정보 한 줄 → 가로 로드맵 → [왼쪽 사이드바: 체크리스트·제출된 자료] + [가운데 채팅창]
+// 거래방 한 화면 (docs/DESIGN.md 4번). 데스크톱은 화면 높이에 맞추고 영역 안에서만 스크롤한다.
+// [왼쪽 사이드바: 체크리스트·제출된 자료, 위아래 끝까지]
+// [오른쪽 패널: 제목·매물 정보·로드맵(위 고정) → 메시지(스크롤) → 입력칸(아래 고정)]
 // Step 1은 lib/mock.ts의 가짜 데이터를 쓰고, 업로드는 화면에만 반영한다.
 
 import Link from "next/link";
@@ -51,117 +52,112 @@ export default function DealRoom({ id }: { id: string }) {
   ];
 
   return (
-    <div className="space-y-4">
-      {/* 1. 제목 + 매물 정보 한 줄 */}
-      <section>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-xs text-muted">
-              {deal.business_type} · {formatDate(deal.created_at)} · 지금 {ROLE_LABEL[role]} 화면
-            </p>
-            <h1 className="mt-1 text-xl font-bold">{deal.address}</h1>
-          </div>
-          <Link
-            href={`/deals/${deal.id}/report`}
-            className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white"
+    // 헤더(4rem)와 main 위아래 여백(3rem)을 뺀 높이
+    <div className="flex flex-col gap-4 md:h-[calc(100dvh-7rem)] md:flex-row">
+      {/* 왼쪽 사이드바: 위아래 끝까지, 안에서만 스크롤 */}
+      <aside className={"flex shrink-0 flex-col gap-3 md:h-full md:min-h-0 " + (sidebarOpen ? "md:w-96" : "md:w-auto")}>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            aria-expanded={sidebarOpen}
+            aria-label={sidebarOpen ? "체크리스트 닫기" : "체크리스트 열기"}
+            className="flex size-9 items-center justify-center rounded-lg bg-card text-muted hover:text-text"
           >
-            검증 리포트 보기
-          </Link>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+              <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </button>
+          {sidebarOpen && <span className="text-sm text-muted">{ROLE_LABEL[role]}의 할 일과 자료</span>}
         </div>
-        <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-          {info.map(([label, value]) => (
-            <div key={label} className="flex gap-1.5">
-              <dt className="text-muted">{label}</dt>
-              <dd className="font-medium tabular-nums">{value}</dd>
+
+        {sidebarOpen && (
+          <div className="flex flex-col gap-3 md:min-h-0 md:flex-1">
+            {/* 체크리스트 */}
+            <section className="flex flex-col rounded-2xl bg-card md:min-h-0 md:flex-1">
+              <SidebarHeader title="체크리스트" count={`할 일 ${myTodo}개`} />
+              <div className="px-3 pb-3 md:min-h-0 md:flex-1 md:overflow-y-auto">
+                <Checklist items={checklist} role={role} currentStage={deal.stage} onUpload={handleUpload} />
+              </div>
+            </section>
+
+            {/* 제출된 자료 */}
+            <section className="flex shrink-0 flex-col rounded-2xl bg-card md:max-h-[40%]">
+              <SidebarHeader title="제출된 자료" count={canSeeDocuments ? `${documents.length}개` : ""} />
+              <div className="px-3 pb-3 md:min-h-0 md:overflow-y-auto">
+                {!canSeeDocuments ? (
+                  <p className="rounded-lg bg-bg p-3 text-sm text-muted">양도인이 자료 공개에 동의하면 볼 수 있어요.</p>
+                ) : documents.length === 0 ? (
+                  <p className="text-sm text-muted">아직 올린 자료가 없어요.</p>
+                ) : (
+                  <>
+                    <ul className="space-y-1 text-sm">
+                      {(showAllDocs ? documents : documents.slice(0, VISIBLE_DOCS)).map((d) => (
+                        <li key={d.id} className="flex items-center justify-between gap-3 rounded-lg bg-bg px-3 py-2">
+                          <span className="min-w-0 truncate">{d.file_name}</span>
+                          <span className="shrink-0 text-xs text-muted">{Math.max(1, Math.ceil(d.size / 1024))}KB</span>
+                        </li>
+                      ))}
+                    </ul>
+                    {documents.length > VISIBLE_DOCS && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllDocs(!showAllDocs)}
+                        className="mt-2 w-full text-center text-sm text-accent"
+                      >
+                        {showAllDocs ? "접기" : `자료 ${documents.length - VISIBLE_DOCS}개 더 보기`}
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            </section>
+          </div>
+        )}
+      </aside>
+
+      {/* 오른쪽 패널: 위 고정(제목·로드맵) / 가운데 스크롤(메시지) / 아래 고정(입력칸) */}
+      <section className="flex min-w-0 flex-1 flex-col rounded-2xl bg-card md:h-full md:min-h-0">
+        <div className="shrink-0 space-y-4 px-4 pt-5 pb-4 md:px-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs text-muted">
+                {deal.business_type} · {formatDate(deal.created_at)} · 지금 {ROLE_LABEL[role]} 화면
+              </p>
+              <h1 className="mt-1 text-xl font-bold">{deal.address}</h1>
             </div>
-          ))}
-        </dl>
-      </section>
-
-      {/* 2. 가로 로드맵 */}
-      <section className="rounded-xl border border-border bg-card px-2 py-4">
-        <Roadmap steps={getRoadmap(deal.stage)} />
-      </section>
-
-      {/* 3. 왼쪽 사이드바 + 가운데 채팅창 */}
-      {/* 데스크톱: 화면 높이에 맞춰 사이드바와 채팅창이 한 화면에 들어온다 */}
-      <div className="flex flex-col gap-4 md:h-[calc(100vh-19rem)] md:min-h-[560px] md:flex-row">
-        <aside className={"flex flex-col gap-3 md:min-h-0 " + (sidebarOpen ? "md:w-96 md:shrink-0" : "md:w-auto")}>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              aria-expanded={sidebarOpen}
-              aria-label={sidebarOpen ? "체크리스트 닫기" : "체크리스트 열기"}
-              className="flex size-9 items-center justify-center rounded-lg border border-border bg-card text-muted hover:text-text"
+            <Link
+              href={`/deals/${deal.id}/report`}
+              className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white"
             >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
-                <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-              </svg>
-            </button>
-            {sidebarOpen && <span className="text-sm text-muted">{ROLE_LABEL[role]}의 할 일과 자료</span>}
+              검증 리포트 보기
+            </Link>
           </div>
-
-          {sidebarOpen && (
-            <>
-              {/* 체크리스트 카드 */}
-              <section className="flex flex-col overflow-hidden rounded-xl border border-border bg-card md:min-h-0 md:flex-1">
-                <SidebarHeader title="체크리스트" count={`할 일 ${myTodo}개`} />
-                <div className="p-2.5 md:min-h-0 md:flex-1 md:overflow-y-auto">
-                  <Checklist items={checklist} role={role} currentStage={deal.stage} onUpload={handleUpload} />
-                </div>
-              </section>
-
-              {/* 제출된 자료 카드 */}
-              <section className="flex shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-card md:max-h-[40%]">
-                <SidebarHeader title="제출된 자료" count={canSeeDocuments ? `${documents.length}개` : ""} />
-                <div className="p-3 md:min-h-0 md:overflow-y-auto">
-                  {!canSeeDocuments ? (
-                    <p className="rounded-lg bg-bg p-3 text-sm text-muted">양도인이 자료 공개에 동의하면 볼 수 있어요.</p>
-                  ) : documents.length === 0 ? (
-                    <p className="text-sm text-muted">아직 올린 자료가 없어요.</p>
-                  ) : (
-                    <>
-                      <ul className="divide-y divide-border text-sm [&>li]:py-1.5">
-                        {(showAllDocs ? documents : documents.slice(0, VISIBLE_DOCS)).map((d) => (
-                          <li key={d.id} className="flex items-center justify-between gap-3 py-2">
-                            <span className="min-w-0 truncate">{d.file_name}</span>
-                            <span className="shrink-0 text-xs text-muted">{Math.max(1, Math.ceil(d.size / 1024))}KB</span>
-                          </li>
-                        ))}
-                      </ul>
-                      {documents.length > VISIBLE_DOCS && (
-                        <button
-                          type="button"
-                          onClick={() => setShowAllDocs(!showAllDocs)}
-                          className="mt-1 w-full text-center text-sm text-accent"
-                        >
-                          {showAllDocs ? "접기" : `자료 ${documents.length - VISIBLE_DOCS}개 더 보기`}
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
-              </section>
-            </>
-          )}
-        </aside>
-
-        <section className="flex h-[70vh] min-h-[420px] min-w-0 flex-1 flex-col rounded-xl border border-border bg-card p-4 md:h-full">
-          <h2 className="mb-3 shrink-0 text-sm font-medium text-muted">메시지</h2>
-          <div className="min-h-0 flex-1">
-            <Messages initial={mockMessages} role={role} />
+          <dl className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+            {info.map(([label, value]) => (
+              <div key={label} className="flex gap-1.5">
+                <dt className="text-muted">{label}</dt>
+                <dd className="font-medium tabular-nums">{value}</dd>
+              </div>
+            ))}
+          </dl>
+          <div className="rounded-xl bg-bg px-2 py-3">
+            <Roadmap steps={getRoadmap(deal.stage)} />
           </div>
-        </section>
-      </div>
+        </div>
+
+        <div className="flex min-h-0 flex-1 flex-col">
+          <Messages initial={mockMessages} role={role} />
+        </div>
+      </section>
     </div>
   );
 }
 
 function SidebarHeader({ title, count }: { title: string; count: string }) {
   return (
-    <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-bg px-3 py-2">
-      <h2 className="text-sm font-bold">{title}</h2>
+    <div className="flex shrink-0 items-center justify-between gap-3 px-4 pt-4 pb-2">
+      <h2 className="font-bold">{title}</h2>
       {count && <span className="text-xs text-muted">{count}</span>}
     </div>
   );

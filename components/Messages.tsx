@@ -31,7 +31,7 @@ export default function Messages({ initial, role }: { initial: Message[]; role: 
 
   return (
     <div className="flex h-full flex-col">
-      <ul ref={listRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+      <ul ref={listRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-4 md:px-6">
         {messages.map((m) => {
           if (m.role === "agent") {
             return (
@@ -49,7 +49,7 @@ export default function Messages({ initial, role }: { initial: Message[]; role: 
               <p
                 className={
                   "max-w-[85%] rounded-xl px-3 py-2 text-sm break-words " +
-                  (mine ? "bg-accent text-white" : "border border-border bg-card")
+                  (mine ? "bg-accent text-white" : "bg-bg")
                 }
               >
                 {m.body}
@@ -58,18 +58,19 @@ export default function Messages({ initial, role }: { initial: Message[]; role: 
           );
         })}
       </ul>
-      <form onSubmit={send} className="mt-4 flex shrink-0 gap-2 border-t border-border pt-4">
+      {/* 입력칸: 데스크톱은 패널 맨 아래, 모바일은 화면 아래에 붙어 따라온다 */}
+      <form onSubmit={send} className="sticky bottom-0 flex shrink-0 gap-2 rounded-b-2xl bg-card px-4 py-4 md:px-6">
         <input
           value={body}
           onChange={(e) => setBody(e.target.value)}
           maxLength={2000}
           placeholder={`${ROLE_LABEL[role]}으로 메시지 보내기`}
-          className="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2 text-sm"
+          className="min-w-0 flex-1 rounded-lg bg-bg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-accent/30"
         />
         <button
           type="submit"
           disabled={!body.trim()}
-          className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className="shrink-0 rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50"
         >
           보내기
         </button>
