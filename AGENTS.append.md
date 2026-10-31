@@ -1,5 +1,5 @@
 
-## 프로젝트: PRD 메이커 (NEXT 개발 세션)
+## 프로젝트: 점포 양도양수 계약 관리 에이전트 (NEXT 개발 세션)
 
 ### 먼저 읽을 것
 - `docs/PRD.md` (무엇을 만드나), `docs/DESIGN.md` (어떻게 보이나), `docs/API.md` (어떻게 동작하나)
@@ -14,7 +14,7 @@
 
 ### 고정 스택 (바꾸지 않는다)
 - Next.js App Router + TypeScript + Tailwind (create-next-app 기본값)
-- 추가 패키지는 `openai`, `@supabase/supabase-js` 두 개뿐이다. 그 외 설치 금지.
+- 추가 패키지는 `openai`, `@supabase/supabase-js`, `xlsx` 세 개뿐이다 (docs/API.md 7번). 그 외 설치 금지.
 - `next.config.ts`의 `cacheComponents: true`는 끄지 않는다. `params`, 쿠키, 캐시 안 한 데이터(Supabase 조회 등)를 기다리는 페이지는 `<Suspense>`로 감싼다.
 
 ### 보안 규칙

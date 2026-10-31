@@ -69,7 +69,7 @@ samples/                            가상 점포 '샘플분식' 자료 4종 (�
 | 이름 | 값 가져오는 곳 | 브라우저 노출 |
 |---|---|---|
 | `OPENAI_API_KEY` | OpenAI 대시보드 API keys (본인 키) | 절대 안 됨 |
-| `OPENAI_MODEL` | 기본 `gpt-6-luna` | 안 됨 |
+| `OPENAI_MODEL` | 기본 `gpt-6-astra` | 안 됨 |
 | `SUPABASE_URL` | Supabase 프로젝트 화면 위쪽 Connect 버튼 | 안 씀 (서버 전용) |
 | `SUPABASE_SECRET_KEY` | Settings > API Keys > Secret keys (`sb_secret_...`). 옛날 프로젝트라 레거시 키만 있으면 `service_role` 키 | 절대 안 됨 |
 
@@ -304,7 +304,7 @@ AI는 **두 번** 부른다. 숫자 비교·합계·등급은 AI가 아니라 �
 |---|---|
 | SDK | `openai` 공식 Node SDK |
 | API | Responses API (`client.responses.create`) |
-| 모델 | `process.env.OPENAI_MODEL`, 없으면 `gpt-6-luna` |
+| 모델 | `process.env.OPENAI_MODEL`, 없으면 `gpt-6-astra` |
 | 프롬프트 | `instructions` = 역할 + 규칙 (PRD 8-2 AI 성격 포함), `input` = 자료 또는 계산 결과 |
 | 출력 형식 | 구조화 출력: `text.format = { type: "json_schema", name: "...", strict: true, schema }` |
 | 결과 읽기 | `JSON.parse(response.output_text)` |
