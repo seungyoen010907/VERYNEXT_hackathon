@@ -252,3 +252,11 @@ grant select, insert, update, delete on
   public.users, public.data_points, public.buyer_profiles, public.ndas, public.access_grants,
   public.agent_tasks, public.agent_messages, public.comparison_reports, public.audit_logs
   to service_role;
+
+-- =====================================================================
+-- 거래방 (PRD 11.2): 매물 × 양수인 한 쌍마다 체크리스트와 메시지를 따로 둔다.
+-- 지금 단계는 칸으로 저장하지 않고 체크리스트에서 계산한다 (lib/deals.ts).
+-- =====================================================================
+alter table public.checklist_items add column if not exists buyer_id uuid references public.users(id) on delete cascade;
+create unique index if not exists checklist_items_room_key_idx on public.checklist_items (deal_id, buyer_id, key);
+create index if not exists messages_room_idx on public.messages (deal_id, buyer_id, created_at);

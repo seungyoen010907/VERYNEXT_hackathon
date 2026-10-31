@@ -1,40 +1,54 @@
 "use client";
 
 // 역할별 체크리스트 (docs/DESIGN.md 5번).
-// 할 일: 순서 번호 + 태그(지금 단계 / 다음 단계 / 파일 제출), 처음 3개만 보이고 나머지는 "더 보기".
+// 할 일: 순서 번호 + 태그(지금 단계 / 다음 단계 / 자료 제출), 처음 3개만 보이고 나머지는 "더 보기".
 // 끝낸 항목: 덜 중요하게, 뒤로 겹쳐 쌓인 카드 모양으로 접는다.
+// 자료 제출 항목(auto)은 데이터룸에 자료를 올려 공개하면 서버가 저절로 체크한다.
+// 인수인계 항목은 양도인이 '넘김' → 양수인이 '확인 완료'를 누른다.
 
+import Link from "next/link";
 import { useState } from "react";
 import { ROLE_LABEL } from "@/components/RoleSwitch";
 import { STAGES, stageTitle, templateFor } from "@/lib/roadmap";
-import type { ChecklistItem, Role, StageKey } from "@/lib/types";
+import type { ChecklistItem, ChecklistStatus, Role, StageKey } from "@/lib/types";
 
 const VISIBLE_COUNT = 3;
 
 const stageIndex = (key: StageKey) => STAGES.findIndex((s) => s.key === key);
+const isConfirm = (i: ChecklistItem) => !!templateFor(i.key)?.confirm;
+
+type SetStatus = (item: ChecklistItem, status: ChecklistStatus) => void;
 
 export default function Checklist({
   items,
   role,
   currentStage,
-  onUpload,
+  listingId,
+  busyId,
+  onSet,
 }: {
   items: ChecklistItem[];
   role: Role;
   currentStage: StageKey;
-  onUpload: (item: ChecklistItem, file: File) => void;
+  listingId: string;
+  busyId: string | null;
+  onSet: SetStatus;
 }) {
   const [showAllTodo, setShowAllTodo] = useState(false);
   const [showDone, setShowDone] = useState(false);
 
-  const mine = items.filter((i) => i.role === role).sort((a, b) => a.sort - b.sort);
-  const todo = mine.filter((i) => i.status === "todo");
-  const done = mine.filter((i) => i.status !== "todo");
+  // 양수인은 양도인이 넘긴 인수인계 항목을 '확인'해야 하므로 내 목록에 같이 보인다
+  const isMine = (i: ChecklistItem) => i.role === role || (role === "buyer" && isConfirm(i) && i.status !== "todo");
+  const isTodo = (i: ChecklistItem) => (role === "buyer" && isConfirm(i) ? i.status !== "confirmed" : i.status === "todo");
+  const mine = items.filter(isMine).sort((a, b) => a.sort - b.sort);
+  const todo = mine.filter(isTodo);
+  const done = mine.filter((i) => !isTodo(i));
   const visibleTodo = showAllTodo ? todo : todo.slice(0, VISIBLE_COUNT);
 
   const others = items.filter((i) => i.role !== role);
   const otherDone = others.filter((i) => i.status !== "todo").length;
   const current = stageIndex(currentStage);
+  const rowProps = { role, listingId, busyId, onSet };
 
   return (
     <div className="space-y-3">
@@ -49,9 +63,8 @@ export default function Checklist({
                 key={item.id}
                 order={i + 1}
                 item={item}
-                role={role}
                 timing={idx < current ? "late" : idx === current ? "now" : "next"}
-                onUpload={onUpload}
+                {...rowProps}
               />
             );
           })}
@@ -73,7 +86,7 @@ export default function Checklist({
             </button>
             <ul className="space-y-1">
               {done.map((item) => (
-                <DoneRow key={item.id} item={item} role={role} onUpload={onUpload} />
+                <DoneRow key={item.id} item={item} {...rowProps} />
               ))}
             </ul>
           </div>
@@ -102,24 +115,48 @@ export default function Checklist({
   );
 }
 
+type RowProps = { role: Role; listingId: string; busyId: string | null; onSet: SetStatus };
+
+// 항목 하나에서 누를 수 있는 버튼 (없으면 null)
+function Action({ item, role, listingId, busyId, onSet, done }: RowProps & { item: ChecklistItem; done: boolean }) {
+  const busy = busyId === item.id;
+  const btn = (label: string, status: ChecklistStatus) => (
+    <button type="button" disabled={busyId !== null} onClick={() => onSet(item, status)} className="shrink-0 text-accent disabled:opacity-50">
+      {busy ? "바꾸는 중..." : label}
+    </button>
+  );
+
+  if (item.auto) {
+    return role === "seller" ? (
+      <Link href={`/listings/${listingId}`} className="shrink-0 text-accent">
+        {done ? "데이터룸 보기" : "데이터룸에 올리기"}
+      </Link>
+    ) : null;
+  }
+  if (isConfirm(item) && role === "buyer") {
+    if (item.status === "done") return btn("확인 완료", "confirmed");
+    if (item.status === "confirmed") return btn("확인 취소", "done");
+    return null;
+  }
+  if (item.role !== role) return null;
+  if (isConfirm(item)) return item.status === "todo" ? btn("넘겼어요", "done") : btn("취소", "todo");
+  return item.status === "todo" ? btn("완료", "done") : btn("취소", "todo");
+}
+
 // late = 지난 단계인데 아직 안 한 것, now = 지금 단계, next = 다음 단계
 function TodoRow({
   order,
   item,
-  role,
   timing,
-  onUpload,
-}: {
+  ...rest
+}: RowProps & {
   order: number;
   item: ChecklistItem;
-  role: Role;
   timing: "late" | "now" | "next";
-  onUpload: (item: ChecklistItem, file: File) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const needsFile = !!templateFor(item.key)?.upload;
-  const canUpload = needsFile && role === "seller";
   const active = timing !== "next";
+  const waitingConfirm = isConfirm(item) && item.status === "done";
 
   return (
     <li className={"rounded-xl px-3 py-2.5 " + (active ? "bg-accent/5" : "bg-bg opacity-70")}>
@@ -139,15 +176,16 @@ function TodoRow({
             {timing === "late" && <Tag tone="warn">밀린 할 일</Tag>}
             {timing === "next" && <Tag tone="muted">다음 단계 · {stageTitle(item.stage)}</Tag>}
             {timing !== "next" && <Tag tone="muted">{stageTitle(item.stage)}</Tag>}
-            {needsFile && <Tag tone="outline">파일 제출</Tag>}
+            {item.auto && <Tag tone="outline">데이터룸 자료로 자동 확인</Tag>}
+            {waitingConfirm && <Tag tone="outline">양도인이 넘김 · 확인 대기</Tag>}
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs">
             {item.guide && (
               <button type="button" onClick={() => setOpen(!open)} className="text-accent">
-                {open ? "안내 닫기" : "어디서 떼나요?"}
+                {open ? "안내 닫기" : item.auto ? "어디서 떼나요?" : "안내 보기"}
               </button>
             )}
-            {canUpload && <UploadButton item={item} onUpload={onUpload} label="파일 올리기" />}
+            <Action item={item} done={false} {...rest} />
           </div>
           {open && item.guide && <p className="mt-2 rounded-lg bg-card p-2 text-xs text-muted">{item.guide}</p>}
         </div>
@@ -156,49 +194,14 @@ function TodoRow({
   );
 }
 
-function DoneRow({
-  item,
-  role,
-  onUpload,
-}: {
-  item: ChecklistItem;
-  role: Role;
-  onUpload: (item: ChecklistItem, file: File) => void;
-}) {
-  const canUpload = templateFor(item.key)?.upload && role === "seller";
+function DoneRow({ item, ...rest }: RowProps & { item: ChecklistItem }) {
   return (
     <li className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-xs text-muted">
       <span className="min-w-0 truncate">
         ✓ {item.title} <span className="opacity-70">· {item.status === "confirmed" ? "확인 완료" : "완료"}</span>
       </span>
-      {canUpload && <UploadButton item={item} onUpload={onUpload} label="다시 올리기" />}
+      <Action item={item} done {...rest} />
     </li>
-  );
-}
-
-function UploadButton({
-  item,
-  label,
-  onUpload,
-}: {
-  item: ChecklistItem;
-  label: string;
-  onUpload: (item: ChecklistItem, file: File) => void;
-}) {
-  return (
-    <label className="shrink-0 cursor-pointer text-accent">
-      {label}
-      <input
-        type="file"
-        className="sr-only"
-        accept=".pdf,.png,.jpg,.jpeg,.webp,.xlsx,.xls,.csv"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) onUpload(item, file);
-          e.target.value = "";
-        }}
-      />
-    </label>
   );
 }
 

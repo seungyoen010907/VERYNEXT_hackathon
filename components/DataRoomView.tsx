@@ -154,9 +154,14 @@ function Header({ room, onChanged }: { room: DataRoom; onChanged: () => void }) 
         )}
       </div>
       {!room.is_owner && (
-        <Link href={`/listings/${l.id}/report`} className="mt-3 inline-flex text-sm text-accent">
-          AI 실사 리포트 보기
-        </Link>
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+          <Link href={`/listings/${l.id}/report`} className="text-accent">
+            AI 실사 리포트 보기
+          </Link>
+          <Link href={`/deals/${l.id}`} className="text-accent">
+            양도인과 거래방 열기
+          </Link>
+        </div>
       )}
       {room.is_owner && (
         <Link href={`/listings/${l.id}/requests`} className="mt-3 inline-flex items-center gap-2 text-sm text-accent">

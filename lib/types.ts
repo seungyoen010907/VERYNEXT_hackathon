@@ -53,6 +53,7 @@ export type ChecklistItem = {
   status: ChecklistStatus;
   sort: number;
   guide: string | null;
+  auto?: boolean; // 데이터룸 자료로 서버가 저절로 체크하는 항목 (직접 못 바꾼다)
 };
 
 export type DocumentKind = "pdf" | "image" | "spreadsheet" | "csv" | "report"; // report = AI 분석 결과(파일 없음)
@@ -80,13 +81,17 @@ export type RoadmapStep = {
   status: "done" | "current" | "todo";
 };
 
-// GET /api/deals 목록 아이템
+// GET /api/deals 목록 아이템 (거래방 = 매물 × 양수인 한 쌍)
 export type DealListItem = {
-  id: string;
-  created_at: string;
-  address: string;
+  listing_id: string;
+  buyer_id: string;
+  buyer_name: string;
+  title: string;
   business_type: BusinessType;
+  is_sample: boolean;
+  created_at: string; // 거래방을 연 시각
   stage: StageKey;
+  completed: boolean;
   todo_count: number;
 };
 

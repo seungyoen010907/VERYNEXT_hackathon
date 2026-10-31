@@ -1,55 +1,100 @@
 "use client";
 
-// 거래방 한 화면 (docs/DESIGN.md 4번). 데스크톱은 화면 높이에 맞추고 영역 안에서만 스크롤한다.
-// [왼쪽 사이드바: 체크리스트·제출된 자료, 위아래 끝까지]
+// 거래방 한 화면 (docs/DESIGN.md 4번). 거래방 = 매물 × 양수인 한 쌍 (PRD 11.2).
+// 데스크톱은 화면 높이에 맞추고 영역 안에서만 스크롤한다.
+// [왼쪽 사이드바: 체크리스트·자료 안내, 위아래 끝까지]
 // [오른쪽 패널: 제목·매물 정보·로드맵(위 고정) → 메시지(스크롤) → 입력칸(아래 고정)]
-// Step 1은 lib/mock.ts의 가짜 데이터를 쓰고, 업로드는 화면에만 반영한다.
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Checklist from "@/components/Checklist";
 import Messages from "@/components/Messages";
 import Roadmap from "@/components/Roadmap";
-import { ROLE_LABEL, useRole } from "@/components/RoleSwitch";
-import { formatDate, won } from "@/lib/format";
-import { mockChecklist, mockDeal, mockDocuments, mockMessages } from "@/lib/mock";
-import { getRoadmap } from "@/lib/roadmap";
-import type { ChecklistItem, DealDocument } from "@/lib/types";
+import { ROLE_LABEL, useUser } from "@/components/RoleSwitch";
+import { apiFetch } from "@/lib/api-client";
+import { won } from "@/lib/format";
+import { getRoadmap, stageTitle, templateFor } from "@/lib/roadmap";
+import type { ChecklistItem, ChecklistStatus, Listing, PublicListing, Role, StageKey } from "@/lib/types";
 
-const VISIBLE_DOCS = 3;
+type Room = {
+  listing: Listing | PublicListing;
+  is_owner: boolean;
+  my_role: Role;
+  buyer: { id: string; name: string };
+  checklist: ChecklistItem[];
+  stage: StageKey;
+  completed: boolean;
+};
 
-export default function DealRoom({ id }: { id: string }) {
-  const role = useRole();
-  const deal = { ...mockDeal, id };
-  const [checklist, setChecklist] = useState(mockChecklist);
-  const [documents, setDocuments] = useState(mockDocuments);
+export default function DealRoom({ id, buyer }: { id: string; buyer: string | null }) {
+  const user = useUser();
+  const [room, setRoom] = useState<Room | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [showAllDocs, setShowAllDocs] = useState(false);
-  const myTodo = checklist.filter((i) => i.role === role && i.status === "todo").length;
+  const buyerQuery = buyer ? `buyer=${encodeURIComponent(buyer)}` : "";
 
-  // 양수인은 양도인이 동의하기 전에는 자료를 볼 수 없다 (API.md 4번)
-  const canSeeDocuments = role === "seller" || deal.seller_consent;
-
-  function handleUpload(item: ChecklistItem, file: File) {
-    const doc: DealDocument = {
-      id: crypto.randomUUID(),
-      created_at: new Date().toISOString(),
-      checklist_key: item.key,
-      file_name: file.name,
-      size: file.size,
+  // 데모 사용자를 바꾸면 그 사람 권한으로 다시 불러온다
+  useEffect(() => {
+    let stop = false;
+    apiFetch<Room>(`/api/deals/${id}${buyerQuery ? `?${buyerQuery}` : ""}`)
+      .then((data) => !stop && (setRoom(data), setError(null)))
+      .catch((e: Error) => !stop && (setRoom(null), setError(e.message)));
+    return () => {
+      stop = true;
     };
-    setDocuments((prev) => [...prev, doc]);
-    setChecklist((prev) => prev.map((i) => (i.id === item.id ? { ...i, status: "done" } : i)));
+  }, [id, buyerQuery, user.id]);
+
+  async function setStatus(item: ChecklistItem, status: ChecklistStatus) {
+    setBusyId(item.id);
+    setError(null);
+    try {
+      const data = await apiFetch<Pick<Room, "checklist" | "stage" | "completed">>(
+        `/api/deals/${id}/checklist/${item.id}${buyerQuery ? `?${buyerQuery}` : ""}`,
+        { method: "PATCH", body: JSON.stringify({ status }) },
+      );
+      setRoom((prev) => (prev ? { ...prev, ...data } : prev));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "바꾸지 못했어요.");
+    } finally {
+      setBusyId(null);
+    }
   }
 
-  const info = [
-    ["권리금", won(deal.premium)],
-    ["보증금", won(deal.deposit)],
-    ["월세", won(deal.monthly_rent)],
-    ["주장 월매출", won(deal.claimed_monthly_sales)],
-    ["주장 월 순수익", won(deal.claimed_monthly_profit)],
-    ["자료 공개", deal.consent_at ? "동의함" : "동의 전"],
+  if (!room) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-3">
+        {error ? (
+          <>
+            <p className="rounded-xl bg-card p-4 text-sm text-warn">{error}</p>
+            <Link href="/deals" className="text-sm text-accent">
+              ← 내 거래방 목록
+            </Link>
+          </>
+        ) : (
+          <p className="text-sm text-muted">불러오는 중...</p>
+        )}
+      </div>
+    );
+  }
+
+  const role = room.my_role;
+  const l = room.listing;
+  const full = room.is_owner ? (l as Listing) : null;
+  const title = full ? (full.business_name ?? full.address) : `${(l as PublicListing).area} ${l.business_type}`;
+  // lib/deals.ts todoCount와 같은 규칙: 양수인은 '확인 완료'를 기다리는 인수인계 항목도 센다
+  const myTodo = room.checklist.filter((i) =>
+    role === "buyer" && templateFor(i.key)?.confirm ? i.status === "done" : i.role === role && i.status === "todo",
+  ).length;
+  const steps = getRoadmap(room.stage).map((s) => (room.completed ? { ...s, status: "done" as const } : s));
+
+  const info: [string, string][] = [
+    ["권리금", won(l.premium)],
+    ["보증금", won(l.deposit)],
+    ["월세", won(l.monthly_rent)],
+    ["지금 단계", room.completed ? "모두 완료" : stageTitle(room.stage)],
   ];
+  if (full) info.push(["양수인", room.buyer.name]);
 
   return (
     // 헤더(4rem)와 main 위아래 여백(3rem)을 뺀 높이
@@ -77,38 +122,38 @@ export default function DealRoom({ id }: { id: string }) {
             <section className="flex flex-col rounded-2xl bg-card md:min-h-0 md:flex-1">
               <SidebarHeader title="체크리스트" count={`할 일 ${myTodo}개`} />
               <div className="px-3 pb-3 md:min-h-0 md:flex-1 md:overflow-y-auto">
-                <Checklist items={checklist} role={role} currentStage={deal.stage} onUpload={handleUpload} />
+                {error && <p className="mb-2 rounded-lg bg-bg p-2 text-xs text-warn">{error}</p>}
+                <Checklist
+                  items={room.checklist}
+                  role={role}
+                  currentStage={room.stage}
+                  listingId={l.id}
+                  busyId={busyId}
+                  onSet={setStatus}
+                />
               </div>
             </section>
 
-            {/* 제출된 자료 */}
-            <section className="flex shrink-0 flex-col rounded-2xl bg-card md:max-h-[40%]">
-              <SidebarHeader title="제출된 자료" count={canSeeDocuments ? `${documents.length}개` : ""} />
-              <div className="px-3 pb-3 md:min-h-0 md:overflow-y-auto">
-                {!canSeeDocuments ? (
-                  <p className="rounded-lg bg-bg p-3 text-sm text-muted">양도인이 자료 공개에 동의하면 볼 수 있어요.</p>
-                ) : documents.length === 0 ? (
-                  <p className="text-sm text-muted">아직 올린 자료가 없어요.</p>
+            {/* 자료: 데이터룸이 권한(공개 등급·NDA·승인)을 지키므로 여기서는 링크만 둔다 */}
+            <section className="flex shrink-0 flex-col gap-2 rounded-2xl bg-card p-4">
+              <h2 className="font-bold">자료</h2>
+              <p className="text-sm text-muted">
+                {room.is_owner
+                  ? "자료는 데이터룸에 올리고 공개 등급을 정해요. 양수인에게 공개한(L0~L2) 자료만 체크리스트에 반영돼요."
+                  : "양도인이 공개한 자료는 데이터룸에서 볼 수 있어요. 잠긴 자료는 NDA 동의나 열람 요청이 필요해요."}
+              </p>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                <Link href={`/listings/${l.id}`} className="text-accent">
+                  데이터룸 보기
+                </Link>
+                {room.is_owner ? (
+                  <Link href={`/listings/${l.id}/requests`} className="text-accent">
+                    구매자 요청 관리
+                  </Link>
                 ) : (
-                  <>
-                    <ul className="space-y-1 text-sm">
-                      {(showAllDocs ? documents : documents.slice(0, VISIBLE_DOCS)).map((d) => (
-                        <li key={d.id} className="flex items-center justify-between gap-3 rounded-lg bg-bg px-3 py-2">
-                          <span className="min-w-0 truncate">{d.file_name}</span>
-                          <span className="shrink-0 text-xs text-muted">{Math.max(1, Math.ceil(d.size / 1024))}KB</span>
-                        </li>
-                      ))}
-                    </ul>
-                    {documents.length > VISIBLE_DOCS && (
-                      <button
-                        type="button"
-                        onClick={() => setShowAllDocs(!showAllDocs)}
-                        className="mt-2 w-full text-center text-sm text-accent"
-                      >
-                        {showAllDocs ? "접기" : `자료 ${documents.length - VISIBLE_DOCS}개 더 보기`}
-                      </button>
-                    )}
-                  </>
+                  <Link href={`/listings/${l.id}/report`} className="text-accent">
+                    AI 실사 리포트
+                  </Link>
                 )}
               </div>
             </section>
@@ -119,19 +164,12 @@ export default function DealRoom({ id }: { id: string }) {
       {/* 오른쪽 패널: 위 고정(제목·로드맵) / 가운데 스크롤(메시지) / 아래 고정(입력칸) */}
       <section className="flex min-w-0 flex-1 flex-col rounded-2xl bg-card md:h-full md:min-h-0">
         <div className="shrink-0 space-y-4 px-4 pt-5 pb-4 md:px-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-xs text-muted">
-                {deal.business_type} · {formatDate(deal.created_at)} · 지금 {ROLE_LABEL[role]} 화면
-              </p>
-              <h1 className="mt-1 text-xl font-bold">{deal.address}</h1>
-            </div>
-            <Link
-              href={`/deals/${deal.id}/report`}
-              className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white"
-            >
-              검증 리포트 보기
-            </Link>
+          <div className="min-w-0">
+            <p className="text-xs text-muted">
+              거래방 · {l.business_type} · 지금 {ROLE_LABEL[role]} 화면
+              {l.is_sample && " · 샘플 데이터"}
+            </p>
+            <h1 className="mt-1 text-xl font-bold">{title}</h1>
           </div>
           <dl className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
             {info.map(([label, value]) => (
@@ -142,12 +180,12 @@ export default function DealRoom({ id }: { id: string }) {
             ))}
           </dl>
           <div className="rounded-xl bg-bg px-2 py-3">
-            <Roadmap steps={getRoadmap(deal.stage)} />
+            <Roadmap steps={steps} />
           </div>
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col">
-          <Messages initial={mockMessages} role={role} />
+          <Messages key={`${user.id}:${l.id}:${buyerQuery}`} listingId={l.id} buyerQuery={buyerQuery} role={role} />
         </div>
       </section>
     </div>
