@@ -295,7 +295,9 @@ export function findRisks(f: ListingFacts, fit: PersonalFit, p: BuyerProfile | n
   for (const w of f.report_warnings) {
     risks.push({ severity: 3, title: w.split(" — ")[0], evidence: w.split(" — ")[1] ?? "교차 검증 리포트", impact: "매출을 근거로 한 권리금 판단이 달라질 수 있어요", how_to_check: "해당 달의 상세 매출 내역(일별 POS, 통장 입금)을 요청해요" });
   }
-  if (f.claimed_gap.value !== null && Math.abs(f.claimed_gap.value) > 15) {
+  // 리포트 경고에 이미 같은 내용(주장 매출 차이)이 있으면 한 번만 쓴다
+  const claimedInReport = f.report_warnings.some((w) => w.startsWith("양도인이 말한 월매출"));
+  if (!claimedInReport && f.claimed_gap.value !== null && Math.abs(f.claimed_gap.value) > 15) {
     risks.push({ severity: 3, title: `양도인 주장 월매출과 자료가 ${Math.abs(f.claimed_gap.value)}% 달라요`, evidence: f.claimed_gap.basis, impact: "권리금이 주장 매출 기준이면 높게 잡혔을 수 있어요", how_to_check: "주장 매출의 근거 자료(현금 매출 장부 등)를 요청해요" });
   }
   if (fit.within_budget === false) {
