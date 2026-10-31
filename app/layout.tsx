@@ -27,7 +27,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 <p className="font-bold">점포 양도양수 에이전트</p>
                 <p className="text-xs text-muted">매출 검증부터 계약까지 한 거래방에서</p>
               </Link>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 whitespace-nowrap">
+                <Link href="/listings" className="text-sm text-muted hover:text-text">
+                  매물
+                </Link>
                 <Link href="/deals" className="text-sm text-muted hover:text-text">
                   내 거래방 목록
                 </Link>

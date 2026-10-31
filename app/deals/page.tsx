@@ -14,7 +14,7 @@ export default function DealsPage() {
     <div className="mx-auto max-w-2xl space-y-4">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold">내 거래방</h1>
-        <Link href="/deals/new" className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white">
+        <Link href="/listings/new" className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white">
           거래방 만들기
         </Link>
       </div>
@@ -22,7 +22,7 @@ export default function DealsPage() {
       {deals.length === 0 ? (
         <div className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted">
           아직 거래방이 없어요.{" "}
-          <Link href="/deals/new" className="text-accent">
+          <Link href="/listings/new" className="text-accent">
             거래방 만들기
           </Link>
         </div>

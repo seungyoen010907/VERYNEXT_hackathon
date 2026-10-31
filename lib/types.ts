@@ -13,7 +13,17 @@ export type StageKey =
   | "closing"
   | "handover";
 
-export type BusinessType = "음식점" | "카페" | "기타";
+export const BUSINESS_TYPES = [
+  "음식점",
+  "카페",
+  "서비스업",
+  "도·소매업",
+  "예술·스포츠·시설업",
+  "교육·학원업",
+  "숙박업",
+  "기타",
+] as const;
+export type BusinessType = (typeof BUSINESS_TYPES)[number];
 
 // deals 테이블
 export type Deal = {
@@ -159,4 +169,99 @@ export type Report = {
   claimed_vs_actual: ClaimedVsActual;
   grade: Grade;
   summary: Summary | null;
+};
+
+// ---- 확장: 매물·데이터룸 (docs/API.md 10.2) ----
+
+// L0 공개 / L1 NDA 후 / L2 승인 후 / L3 양도인 전용
+export const ACCESS_LEVELS = ["L0", "L1", "L2", "L3"] as const;
+export type AccessLevel = (typeof ACCESS_LEVELS)[number];
+
+export const DOC_CATEGORIES = ["sales", "cost", "contract", "facility", "other"] as const;
+export type DocCategory = (typeof DOC_CATEGORIES)[number];
+
+// 점주 진술 / 자료 제출 / 교차 확인 / 외부 검증 / AI 추정 (PRD 7.2)
+export type TrustLevel = "owner_stated" | "submitted" | "cross_checked" | "external" | "ai_estimate";
+
+export type ListingStatus = "draft" | "published";
+
+export type PremiumBreakdown = {
+  business: number | null; // 영업권리금
+  facility: number | null; // 시설권리금
+  floor: number | null; // 바닥권리금
+  basis: string | null; // 산정 근거
+};
+
+export type Parking = {
+  building_total: number | null;
+  for_store: number | null;
+};
+
+// deals 테이블 = 매물
+export type Listing = Deal & {
+  seller_id: string | null;
+  building_name: string | null;
+  business_name: string | null;
+  floor: number | null;
+  total_floors: number | null;
+  area_pyeong: number | null;
+  is_franchise: boolean | null;
+  premium_breakdown: PremiumBreakdown | null;
+  themes: string[];
+  parking: Parking | null;
+  status: ListingStatus;
+  is_sample: boolean;
+};
+
+// 양수인(다른 사람)에게 보이는 매물: L0 항목만
+export type PublicListing = {
+  id: string;
+  created_at: string;
+  area: string; // 대략적인 위치 (시·구까지)
+  business_type: BusinessType;
+  premium: number;
+  deposit: number;
+  monthly_rent: number;
+  floor: number | null;
+  area_pyeong: number | null;
+  themes: string[];
+  status: ListingStatus;
+  is_sample: boolean;
+};
+
+export type VerificationStatus = "submitted" | "analyzed" | "ai_failed";
+
+export type ListingDocument = {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  file_name: string;
+  kind: DocumentKind;
+  size: number;
+  category: DocCategory;
+  access_level: AccessLevel; // 원본 파일
+  summary_access_level: AccessLevel; // 추출 요약
+  extraction: ExtractedDocument | null;
+  verification_status: VerificationStatus;
+};
+
+export type DataPoint = {
+  id: string;
+  document_id: string | null;
+  key: string; // 예: card_sales.gross_sales
+  period: string | null;
+  value: number | null;
+  unit: string;
+  trust_level: TrustLevel;
+  access_level: AccessLevel;
+  source_note: string | null;
+};
+
+// GET /api/listings/[id] 응답
+export type DataRoom = {
+  is_owner: boolean;
+  listing: Listing | PublicListing;
+  documents: ListingDocument[];
+  data_points: DataPoint[];
+  report: { id: string; created_at: string; grade: Grade; result: Report } | null;
 };

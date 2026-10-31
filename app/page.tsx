@@ -32,7 +32,7 @@ export default function Home() {
       </ol>
 
       <div className="space-y-2">
-        <Link href="/deals/new" className="block rounded-lg bg-accent py-3 text-center font-medium text-white">
+        <Link href="/listings/new" className="block rounded-lg bg-accent py-3 text-center font-medium text-white">
           거래 시작하기
         </Link>
         <Link href="/deals" className="block py-2 text-center text-sm text-muted hover:text-text">

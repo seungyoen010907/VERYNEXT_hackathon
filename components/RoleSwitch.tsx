@@ -1,20 +1,21 @@
 "use client";
 
-// 헤더의 "양도인으로 보기 / 양수인으로 보기" 전환.
-// 고른 역할은 localStorage에 저장하고, 다른 컴포넌트는 useRole()로 읽는다.
+// 헤더의 데모 사용자 전환 (양도인 A·B·C / 양수인). 실제 로그인 대신 쓰는 시연용 방식 (docs/API.md 10.1).
+// 고른 사용자 id는 localStorage에 저장하고, 다른 컴포넌트는 useUser()·useRole()로 읽는다.
 
 import { createContext, useContext, useSyncExternalStore } from "react";
+import { DEFAULT_USER_ID, DEMO_USERS, findDemoUser, type DemoUser } from "@/lib/demo-users";
 import type { Role } from "@/lib/types";
 
-const STORAGE_KEY = "role";
-const CHANGE_EVENT = "role-change";
-const DEFAULT_ROLE: Role = "buyer";
+const STORAGE_KEY = "demo-user-id";
+const CHANGE_EVENT = "demo-user-change";
 
-function readRole(): Role {
+export function readUserId(): string {
   try {
-    return localStorage.getItem(STORAGE_KEY) === "seller" ? "seller" : "buyer";
+    const id = localStorage.getItem(STORAGE_KEY);
+    return findDemoUser(id) ? (id as string) : DEFAULT_USER_ID;
   } catch {
-    return DEFAULT_ROLE;
+    return DEFAULT_USER_ID;
   }
 }
 
@@ -27,25 +28,29 @@ function subscribe(onChange: () => void) {
   };
 }
 
-function writeRole(role: Role) {
+function writeUserId(id: string) {
   try {
-    localStorage.setItem(STORAGE_KEY, role);
+    localStorage.setItem(STORAGE_KEY, id);
   } catch {
     // 저장이 막힌 브라우저면 이번 화면에서만 바뀐다
   }
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
-const RoleContext = createContext<Role>(DEFAULT_ROLE);
+const UserContext = createContext<DemoUser>(findDemoUser(DEFAULT_USER_ID)!);
 
 export function RoleProvider({ children }: { children: React.ReactNode }) {
   // 서버에는 localStorage가 없어서 기본값(양수인)으로 그리고, 브라우저에서 저장된 값으로 바꾼다.
-  const role = useSyncExternalStore(subscribe, readRole, () => DEFAULT_ROLE);
-  return <RoleContext.Provider value={role}>{children}</RoleContext.Provider>;
+  const id = useSyncExternalStore(subscribe, readUserId, () => DEFAULT_USER_ID);
+  return <UserContext.Provider value={findDemoUser(id)!}>{children}</UserContext.Provider>;
+}
+
+export function useUser(): DemoUser {
+  return useContext(UserContext);
 }
 
 export function useRole(): Role {
-  return useContext(RoleContext);
+  return useContext(UserContext).role;
 }
 
 export const ROLE_LABEL: Record<Role | "agent", string> = {
@@ -55,26 +60,28 @@ export const ROLE_LABEL: Record<Role | "agent", string> = {
 };
 
 export default function RoleSwitch() {
-  const role = useRole();
-  const options: Role[] = ["seller", "buyer"];
+  const user = useUser();
 
   return (
-    <div className="flex rounded-lg bg-bg p-0.5 text-sm" role="group" aria-label="역할 전환">
-      {options.map((r) => (
-        <button
-          key={r}
-          type="button"
-          onClick={() => writeRole(r)}
-          aria-pressed={role === r}
-          className={
-            role === r
-              ? "rounded-md bg-accent px-2.5 py-1 font-medium text-white"
-              : "rounded-md px-2.5 py-1 text-muted hover:text-text"
-          }
-        >
-          {ROLE_LABEL[r]}으로 보기
-        </button>
-      ))}
+    <div className="flex items-center gap-2">
+      <span className="hidden text-xs text-muted sm:inline">데모 사용자</span>
+      <div className="flex rounded-lg bg-bg p-0.5 text-sm whitespace-nowrap" role="group" aria-label="데모 사용자 전환">
+        {DEMO_USERS.map((u) => (
+          <button
+            key={u.id}
+            type="button"
+            onClick={() => writeUserId(u.id)}
+            aria-pressed={user.id === u.id}
+            className={
+              user.id === u.id
+                ? "rounded-md bg-accent px-2 py-1 font-medium text-white sm:px-2.5"
+                : "rounded-md px-2 py-1 text-muted hover:text-text sm:px-2.5"
+            }
+          >
+            {u.short}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
