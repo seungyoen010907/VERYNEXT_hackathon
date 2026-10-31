@@ -34,7 +34,12 @@ const EXTRACT_INSTRUCTIONS = `너는 점포 양도양수 실사를 돕는 매출
 각 <file name="..."> ~ </file> 사이가 파일 하나다. 파일마다 documents에 하나씩 넣고, file_name은 태그의 이름을 그대로 쓴다.
 
 규칙:
-- 자료 종류(doc_type): 카드매출 card_sales, POS pos, 배달앱 정산 delivery_app, 부가세 신고서 vat_return, 통장 거래내역 bank_statement, 그 밖 other.
+- 자료 종류(doc_type): 카드매출 card_sales, POS pos, 배달앱 정산 delivery_app, 부가세 신고서 vat_return, 통장 거래내역 bank_statement, 비용 내역 cost_statement, 임대차계약서 lease_contract, 운영 현황(근무시간·인력) operation, 시설 목록 facility, 그 밖 other.
+- 매출 자료가 아니면 monthly는 빈 배열이다.
+- 비용 내역은 monthly_costs에 월·항목별로 넣는다. 항목: 재료비 ingredients, 인건비 labor, 공과금 utilities, 임차료 rent, 수수료 fees, 그 밖 other.
+- 임대차계약서는 lease에 보증금, 월세, 관리비, 계약 시작·끝(YYYY-MM)을 넣는다. 아니면 null.
+- 점주 주당 근무시간과 직원 수가 적혀 있으면 operation에 넣는다. 아니면 null.
+- 넘겨받는 시설·설비 이름은 facility_items에 넣는다.
 - 금액은 원 단위 숫자로만 쓴다. "1,234만원" → 12340000.
 - 월은 YYYY-MM 형식. 일별 자료는 월별로 합산해서 넣는다.
 - gross_sales는 월 총매출(카드는 취소를 뺀 매출합계, 배달은 주문금액, POS는 총매출). 카드 자료에 승인금액과 매출합계(승인 - 취소)가 같이 있으면 매출합계를 쓴다. net_amount는 수수료를 뺀 정산·입금액. 없으면 null.

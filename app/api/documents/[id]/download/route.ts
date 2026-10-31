@@ -1,7 +1,8 @@
 // GET: 원본 파일 다운로드 링크 (60초짜리 signed URL). 원본 공개 등급으로 권한을 확인한다.
 
 import { NextResponse } from "next/server";
-import { accessContext, canSee } from "@/lib/access";
+import { canSee, loadAccess } from "@/lib/access";
+import { audit } from "@/lib/audit";
 import { getUser } from "@/lib/auth";
 import { handleError, HttpError } from "@/lib/http";
 import { getListing } from "@/lib/listings";
@@ -13,17 +14,19 @@ export async function GET(request: Request, ctx: RouteContext<"/api/documents/[i
     const { id } = await ctx.params;
     if (!/^[0-9a-f-]{36}$/i.test(id)) throw new HttpError(404, "자료를 찾을 수 없어요.");
     const supabase = getSupabase();
-    const { data: doc, error } = await supabase.from("documents").select("deal_id, storage_path, access_level, file_name").eq("id", id).maybeSingle();
+    const { data: doc, error } = await supabase.from("documents").select("deal_id, storage_path, access_level, file_name, kind").eq("id", id).maybeSingle();
     if (error) throw error;
-    if (!doc) throw new HttpError(404, "자료를 찾을 수 없어요.");
+    if (!doc || doc.kind === "report") throw new HttpError(404, "자료를 찾을 수 없어요.");
 
     const listing = await getListing(doc.deal_id);
-    if (!canSee(accessContext(user, listing), doc.access_level)) throw new HttpError(403, "이 자료의 원본을 볼 권한이 없어요.");
+    const access = await loadAccess(user, listing);
+    if (!canSee(access, doc.access_level, { type: "document", id })) throw new HttpError(403, "이 자료의 원본을 볼 권한이 없어요.");
 
     const { data, error: signError } = await supabase.storage
       .from(BUCKET)
       .createSignedUrl(doc.storage_path, 60, { download: doc.file_name });
     if (signError) throw signError;
+    if (!access.isOwner) await audit(user.id, "download", doc.deal_id, doc.file_name);
     return NextResponse.json({ url: data.signedUrl });
   } catch (e) {
     return handleError(e);

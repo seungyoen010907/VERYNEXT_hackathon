@@ -3,13 +3,15 @@
 // 매물 데이터룸 (PRD 9번 화면 3). 양도인 본인은 전부 보고 고칠 수 있고,
 // 다른 사용자는 서버가 공개 등급으로 걸러서 준 것만 본다.
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import ReportView from "@/components/ReportView";
 import { useUser } from "@/components/RoleSwitch";
 import Tag from "@/components/Tag";
 import { apiFetch } from "@/lib/api-client";
 import { formatDate, formatTime, won } from "@/lib/format";
-import { ACCESS_LABEL, CATEGORY_LABEL, DOC_TYPE_LABEL, TRUST_LABEL, VERIFICATION_LABEL, dataPointLabel } from "@/lib/labels";
+import { ACCESS_LABEL, CATEGORY_LABEL, DOC_TYPE_LABEL, TRUST_LABEL, VERIFICATION_LABEL, dataPointLabel, formatPointValue } from "@/lib/labels";
+import { NDA_TEXT, NDA_VERSION } from "@/lib/nda";
 import {
   ACCESS_LEVELS,
   type AccessLevel,
@@ -18,6 +20,7 @@ import {
   type DocCategory,
   type Listing,
   type ListingDocument,
+  type LockedItem,
   type PublicListing,
 } from "@/lib/types";
 
@@ -66,6 +69,7 @@ export default function DataRoomView({ id }: { id: string }) {
   return (
     <div className="mx-auto max-w-6xl space-y-5">
       <Header room={room} onChanged={load} />
+      {!owner && <BuyerAccessPanel room={room} onChanged={load} />}
 
       <nav className="flex gap-1 overflow-x-auto rounded-xl bg-card p-1 text-sm">
         {tabs.map((t) => (
@@ -149,10 +153,11 @@ function Header({ room, onChanged }: { room: DataRoom; onChanged: () => void }) 
           </button>
         )}
       </div>
-      {!room.is_owner && (
-        <p className="mt-3 rounded-lg bg-bg p-3 text-sm text-muted">
-          양도인이 공개(L0)한 정보만 보여요. NDA와 열람 승인 절차는 다음 단계에서 연결돼요.
-        </p>
+      {room.is_owner && (
+        <Link href={`/listings/${l.id}/requests`} className="mt-3 inline-flex items-center gap-2 text-sm text-accent">
+          구매자 요청 관리
+          {room.pending_requests > 0 && <Tag tone="warn">{`승인 대기 ${room.pending_requests}`}</Tag>}
+        </Link>
       )}
       {error && <p className="mt-3 text-sm text-warn">{error}</p>}
     </section>
@@ -426,7 +431,7 @@ function PointRow({ point, owner, onChanged }: { point: DataPoint; owner: boolea
           </span>
         ) : (
           <span>
-            {won(point.value)}
+            {formatPointValue(point)}
             {owner && (
               <button type="button" onClick={() => setEditing(true)} className="ml-2 text-xs text-accent">
                 수정
@@ -466,9 +471,14 @@ function AiTab({ room, onChanged }: { room: DataRoom; onChanged: () => void }) {
   }
 
   if (!room.is_owner) {
-    return (
+    return room.report ? (
+      <section className="space-y-3">
+        <p className="text-xs text-muted">양도인이 공개한 AI 교차 검증 결과예요. 마지막 검증: {formatTime(room.report.created_at)}</p>
+        <ReportView report={room.report.result} />
+      </section>
+    ) : (
       <p className="rounded-xl bg-card p-6 text-center text-sm text-muted">
-        교차 검증 리포트는 지금은 양도인만 볼 수 있어요. 공개 범위 설정은 다음 단계(권한·NDA)에서 연결돼요.
+        양도인이 AI 분석 결과를 아직 공개하지 않았어요. 위의 &quot;잠긴 자료&quot;에 있으면 열람을 요청할 수 있어요.
       </p>
     );
   }
@@ -534,7 +544,7 @@ function AccessTab({ room, onChanged }: { room: DataRoom; onChanged: () => void 
           자료마다 <b className="text-text">원본 파일</b>과 <b className="text-text">추출 요약(숫자)</b>의 공개 범위를 따로 정해요. 예: 원본 POS 파일은 L3로 두고 월별
           매출 요약만 L0로 공개.
         </p>
-        <p className="mt-1">지금은 L0만 다른 사용자에게 보여요. L1(NDA 후)·L2(승인 후) 열람 절차와 열람 기록은 다음 단계에서 연결돼요.</p>
+        <p className="mt-1">L0 누구나 · L1 NDA 테스트 동의한 양수인 · L2 NDA + 내가 승인한 양수인 · L3 나만. AI 에이전트도 같은 규칙으로만 답해요.</p>
       </div>
       {error && <p className="rounded-lg border border-warn/30 bg-warn/10 p-3 text-sm text-warn">{error}</p>}
       {room.documents.length === 0 ? (
@@ -552,6 +562,29 @@ function AccessTab({ room, onChanged }: { room: DataRoom; onChanged: () => void 
               </tr>
             </thead>
             <tbody>
+              {room.report_access && (
+                <tr className="border-t border-bg bg-accent/5">
+                  <td className="px-4 py-3">AI 교차 검증 리포트</td>
+                  <td className="px-4 py-3 whitespace-nowrap">AI 분석</td>
+                  <td className="px-4 py-3 text-xs text-muted">원본 파일 없음</td>
+                  <td className="px-4 py-3">
+                    <select
+                      value={room.report_access.level}
+                      onChange={(e) =>
+                        change({ id: room.report_access!.document_id } as ListingDocument, "summary_access_level", e.target.value as AccessLevel)
+                      }
+                      className="rounded-md bg-bg px-2 py-1"
+                    >
+                      {ACCESS_LEVELS.map((lv) => (
+                        <option key={lv} value={lv}>
+                          {ACCESS_LABEL[lv]}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-4 py-3 text-muted">-</td>
+                </tr>
+              )}
               {room.documents.map((d) => (
                 <tr key={d.id} className="border-t border-bg">
                   <td className="px-4 py-3 break-all">{d.file_name}</td>
@@ -575,5 +608,92 @@ function AccessTab({ room, onChanged }: { room: DataRoom; onChanged: () => void 
         </div>
       )}
     </section>
+  );
+}
+
+// ---- 양수인: NDA 테스트 동의 + 잠긴 자료 열람 요청 ----
+
+function BuyerAccessPanel({ room, onChanged }: { room: DataRoom; onChanged: () => void }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const agreed = room.nda?.status === "test_agreed";
+
+  async function run(key: string, path: string, body: object) {
+    setBusy(key);
+    setError(null);
+    try {
+      await apiFetch(path, { method: "POST", body: JSON.stringify(body) });
+      onChanged();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "실패했어요.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <section className="grid gap-4 rounded-xl bg-card p-5 lg:grid-cols-2">
+      <div>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="font-medium">비밀유지 약정 (NDA)</p>
+          {agreed ? <Tag tone="outline">테스트 동의함 · 법적 효력 없음</Tag> : <Tag>동의 전</Tag>}
+        </div>
+        <ul className="mt-2 space-y-1 text-xs text-muted">
+          {NDA_TEXT.map((t) => (
+            <li key={t}>{t}</li>
+          ))}
+        </ul>
+        <p className="mt-2 text-xs text-muted">
+          문서 버전 {NDA_VERSION}
+          {room.nda?.agreed_at && agreed && ` · 동의 시각 ${formatTime(room.nda.agreed_at)}`}
+        </p>
+        <button
+          type="button"
+          disabled={!!busy}
+          onClick={() => run("nda", `/api/listings/${room.listing.id}/nda`, { agree: !agreed })}
+          className={"mt-3 rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50 " + (agreed ? "bg-bg text-text" : "bg-accent text-white")}
+        >
+          {busy === "nda" ? "처리 중..." : agreed ? "동의 철회" : "테스트 동의하기 (법적 효력 없음)"}
+        </button>
+      </div>
+
+      <div>
+        <p className="font-medium">잠긴 자료 ({room.locked.length})</p>
+        {room.locked.length === 0 ? (
+          <p className="mt-2 text-sm text-muted">더 열 수 있는 자료가 없어요. (양도인 전용 자료는 목록에 나오지 않아요)</p>
+        ) : (
+          <ul className="mt-2 space-y-2">
+            {room.locked.map((item) => (
+              <LockedRow key={`${item.target_type}:${item.target_id}`} item={item} agreed={agreed} busy={busy} onRequest={() => run(item.target_id + item.target_type, `/api/listings/${room.listing.id}/requests`, { target_type: item.target_type, target_id: item.target_id, reason: "인수 검토" })} />
+            ))}
+          </ul>
+        )}
+      </div>
+      {error && <p className="rounded-lg border border-warn/30 bg-warn/10 p-3 text-sm text-warn lg:col-span-2">{error}</p>}
+    </section>
+  );
+}
+
+function LockedRow({ item, agreed, busy, onRequest }: { item: LockedItem; agreed: boolean; busy: string | null; onRequest: () => void }) {
+  const status = item.request_status;
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-bg px-3 py-2 text-sm">
+      <span className="min-w-0">
+        {item.label} <Tag tone={ACCESS_TONE[item.level]}>{ACCESS_LABEL[item.level]}</Tag>
+      </span>
+      {item.level === "L1" ? (
+        <span className="text-xs text-muted">NDA 동의하면 열려요</span>
+      ) : status === "requested" ? (
+        <Tag tone="caution">승인 대기</Tag>
+      ) : status === "approved" ? (
+        <Tag tone="outline">승인됨</Tag>
+      ) : !agreed ? (
+        <span className="text-xs text-muted">NDA 동의 후 요청 가능</span>
+      ) : (
+        <button type="button" disabled={!!busy} onClick={onRequest} className="text-xs font-medium text-accent disabled:opacity-50">
+          {status === "rejected" || status === "revoked" ? "다시 요청" : "열람 요청"}
+        </button>
+      )}
+    </li>
   );
 }

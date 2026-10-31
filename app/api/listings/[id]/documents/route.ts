@@ -31,7 +31,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/listings/[i
     if (!DOC_CATEGORIES.includes(category as DocCategory)) throw new HttpError(400, "자료 분류가 올바르지 않아요.");
 
     const supabase = getSupabase();
-    const { count, error: countError } = await supabase.from("documents").select("id", { count: "exact", head: true }).eq("deal_id", id);
+    const { count, error: countError } = await supabase.from("documents").select("id", { count: "exact", head: true }).eq("deal_id", id).neq("kind", "report");
     if (countError) throw countError;
     if ((count ?? 0) >= MAX_DOCS) throw new HttpError(400, `매물 하나에 자료는 ${MAX_DOCS}개까지 올릴 수 있어요.`);
 

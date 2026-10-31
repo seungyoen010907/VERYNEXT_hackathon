@@ -20,6 +20,37 @@ export async function getListing(id: string): Promise<Listing> {
   return data as Listing;
 }
 
+// AI 교차 검증 리포트도 데이터룸 항목 하나로 다룬다 (공개 등급을 따로 정할 수 있게). 파일은 없다.
+export async function ensureReportDocument(listingId: string): Promise<{ id: string; summary_access_level: AccessLevel }> {
+  const supabase = getSupabase();
+  const { data: found, error } = await supabase
+    .from("documents")
+    .select("id, summary_access_level")
+    .eq("deal_id", listingId)
+    .eq("kind", "report")
+    .maybeSingle();
+  if (error) throw error;
+  if (found) return found;
+  const { data, error: insertError } = await supabase
+    .from("documents")
+    .insert({
+      deal_id: listingId,
+      checklist_key: "report",
+      category: "other",
+      file_name: "AI 교차 검증 리포트",
+      storage_path: "virtual:report",
+      kind: "report",
+      size: 0,
+      access_level: "L3",
+      summary_access_level: "L3",
+      verification_status: "analyzed",
+    })
+    .select("id, summary_access_level")
+    .single();
+  if (insertError) throw insertError;
+  return data;
+}
+
 export function assertOwner(user: CurrentUser, listing: Listing) {
   if (listing.seller_id !== user.id) throw new HttpError(403, "이 매물의 양도인만 할 수 있어요.");
 }
@@ -59,7 +90,7 @@ export function toPublicListing(l: Listing): PublicListing {
 }
 
 // 추출 결과 -> data_points 행 (원본 자료와 연결, 신뢰 수준 "자료 제출")
-function toDataPoints(listingId: string, documentId: string, ex: ExtractedDocument, access: AccessLevel) {
+export function toDataPoints(listingId: string, documentId: string, ex: ExtractedDocument, access: AccessLevel) {
   const base = { listing_id: listingId, document_id: documentId, unit: "KRW", trust_level: "submitted", access_level: access };
   const note = `${ex.file_name}에서 추출`;
   const rows = [];
@@ -71,13 +102,32 @@ function toDataPoints(listingId: string, documentId: string, ex: ExtractedDocume
     const period = ex.period_start && ex.period_end ? `${ex.period_start}~${ex.period_end}` : null;
     rows.push({ ...base, key: `${ex.doc_type}.stated_total`, period, value: ex.stated_total, source_note: `${ex.file_name}에 적힌 합계` });
   }
+  for (const c of ex.monthly_costs ?? []) {
+    if (c.amount !== null) rows.push({ ...base, key: `cost.${c.category}`, period: c.month, value: c.amount, source_note: note });
+  }
+  if (ex.lease) {
+    const l = ex.lease;
+    if (l.deposit !== null) rows.push({ ...base, key: "lease.deposit", period: null, value: l.deposit, source_note: note });
+    if (l.monthly_rent !== null) rows.push({ ...base, key: "lease.monthly_rent", period: null, value: l.monthly_rent, source_note: note });
+    if (l.maintenance_fee !== null) rows.push({ ...base, key: "lease.maintenance_fee", period: null, value: l.maintenance_fee, source_note: note });
+    if (l.start) rows.push({ ...base, key: "lease.start", period: l.start, value: null, unit: "month", source_note: note });
+    if (l.end) rows.push({ ...base, key: "lease.end", period: l.end, value: null, unit: "month", source_note: note });
+  }
+  if (ex.operation) {
+    const o = ex.operation;
+    if (o.owner_weekly_hours !== null) rows.push({ ...base, key: "operation.owner_weekly_hours", period: null, value: o.owner_weekly_hours, unit: "hour", source_note: note });
+    if (o.staff_count !== null) rows.push({ ...base, key: "operation.staff_count", period: null, value: o.staff_count, unit: "person", source_note: note });
+  }
+  for (const item of ex.facility_items ?? []) {
+    rows.push({ ...base, key: "facility.item", period: null, value: null, unit: "item", source_note: `${item} (${ex.file_name})` });
+  }
   return rows;
 }
 
 // 자료 하나를 AI로 분석해 저장한다. 이미 분석한 자료는 다시 분석하지 않는다 (API 비용 절약).
 // AI가 실패해도 자료 자체는 남고 verification_status만 ai_failed가 된다.
 export async function analyzeDocument(doc: ListingDocument & { storage_path: string; deal_id: string }) {
-  if (doc.extraction) return doc;
+  if (doc.extraction || doc.kind === "report") return doc;
   const supabase = getSupabase();
 
   const { data: file, error: dlError } = await supabase.storage.from(BUCKET).download(doc.storage_path);

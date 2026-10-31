@@ -1,6 +1,7 @@
 // PATCH: 자료의 공개 등급(원본 / 추출 요약 따로)과 분류를 바꾼다 (소유 양도인)
 
 import { NextResponse } from "next/server";
+import { audit } from "@/lib/audit";
 import { handleError, HttpError } from "@/lib/http";
 import { DOCUMENT_COLUMNS, getOwnedDocument } from "@/lib/listings";
 import { getSupabase } from "@/lib/supabase";
@@ -9,7 +10,7 @@ import { ACCESS_LEVELS, DOC_CATEGORIES, type AccessLevel, type DocCategory } fro
 export async function PATCH(request: Request, ctx: RouteContext<"/api/documents/[id]">) {
   try {
     const { id } = await ctx.params;
-    await getOwnedDocument(request, id);
+    const { user, doc } = await getOwnedDocument(request, id);
     const body = await request.json().catch(() => {
       throw new HttpError(400, "요청 형식이 올바르지 않아요.");
     });
@@ -26,6 +27,9 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/documents/
       update.category = body.category;
     }
 
+    // AI 분석 결과(report)는 원본 파일이 없어서 두 등급을 같이 움직인다
+    if (doc.kind === "report" && update.summary_access_level) update.access_level = update.summary_access_level;
+
     const supabase = getSupabase();
     const { data, error } = await supabase.from("documents").update(update).eq("id", id).select(DOCUMENT_COLUMNS).single();
     if (error) throw error;
@@ -34,6 +38,8 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/documents/
       const { error: dpError } = await supabase.from("data_points").update({ access_level: update.summary_access_level }).eq("document_id", id);
       if (dpError) throw dpError;
     }
+    const changes = ["access_level", "summary_access_level", "category"].filter((f) => f in update).map((f) => `${f}=${update[f]}`).join(", ");
+    await audit(user.id, "access_change", doc.deal_id, `${doc.file_name}: ${changes}`);
     return NextResponse.json({ document: { ...data, storage_path: undefined, deal_id: undefined } });
   } catch (e) {
     return handleError(e);

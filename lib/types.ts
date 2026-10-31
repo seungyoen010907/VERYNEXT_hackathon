@@ -55,7 +55,7 @@ export type ChecklistItem = {
   guide: string | null;
 };
 
-export type DocumentKind = "pdf" | "image" | "spreadsheet" | "csv";
+export type DocumentKind = "pdf" | "image" | "spreadsheet" | "csv" | "report"; // report = AI 분석 결과(파일 없음)
 
 // documents 테이블 (화면에 필요한 칸만)
 export type DealDocument = {
@@ -92,7 +92,39 @@ export type DealListItem = {
 
 // ---- AI 1단계 출력: Extraction (lib/extraction-schema.ts) ----
 
-export type DocType = "card_sales" | "pos" | "delivery_app" | "vat_return" | "bank_statement" | "other";
+export type DocType =
+  | "card_sales"
+  | "pos"
+  | "delivery_app"
+  | "vat_return"
+  | "bank_statement"
+  | "cost_statement"
+  | "lease_contract"
+  | "operation"
+  | "facility"
+  | "other";
+
+export const COST_CATEGORIES = ["ingredients", "labor", "utilities", "rent", "fees", "other"] as const;
+export type CostCategory = (typeof COST_CATEGORIES)[number];
+
+export type ExtractedCost = {
+  month: string; // YYYY-MM
+  category: CostCategory;
+  amount: number | null;
+};
+
+export type ExtractedLease = {
+  deposit: number | null;
+  monthly_rent: number | null;
+  maintenance_fee: number | null;
+  start: string | null; // YYYY-MM
+  end: string | null; // YYYY-MM
+};
+
+export type ExtractedOperation = {
+  owner_weekly_hours: number | null;
+  staff_count: number | null;
+};
 
 export type ExtractedMonth = {
   month: string; // YYYY-MM
@@ -110,6 +142,11 @@ export type ExtractedDocument = {
   period_end: string | null;
   monthly: ExtractedMonth[];
   stated_total: number | null;
+  // 아래 4개는 비용·계약·운영·시설 자료용. 예전 분석 결과에는 없을 수 있다.
+  monthly_costs?: ExtractedCost[];
+  lease?: ExtractedLease | null;
+  operation?: ExtractedOperation | null;
+  facility_items?: string[];
   readability: "clear" | "partial" | "unreadable";
   warnings: string[];
 };
@@ -257,6 +294,25 @@ export type DataPoint = {
   source_note: string | null;
 };
 
+export type GrantStatus = "requested" | "approved" | "rejected" | "revoked";
+
+// 양수인에게 "있지만 잠긴" 자료 (L1·L2). L3는 존재도 알리지 않는다.
+export type LockedItem = {
+  target_type: "document" | "document_summary";
+  target_id: string;
+  label: string;
+  category: DocCategory;
+  level: AccessLevel;
+  request_status: GrantStatus | null;
+};
+
+export type NdaStatus = {
+  status: "test_agreed" | "revoked";
+  version: string;
+  agreed_at: string;
+  revoked_at: string | null;
+};
+
 // GET /api/listings/[id] 응답
 export type DataRoom = {
   is_owner: boolean;
@@ -264,4 +320,8 @@ export type DataRoom = {
   documents: ListingDocument[];
   data_points: DataPoint[];
   report: { id: string; created_at: string; grade: Grade; result: Report } | null;
+  report_access: { document_id: string; level: AccessLevel } | null; // 양도인에게만
+  nda: NdaStatus | null; // 보는 사람(양수인)의 NDA
+  locked: LockedItem[];
+  pending_requests: number; // 양도인에게만
 };
