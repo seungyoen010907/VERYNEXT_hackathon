@@ -37,7 +37,7 @@ const EXTRACT_INSTRUCTIONS = `너는 점포 양도양수 실사를 돕는 매출
 - 자료 종류(doc_type): 카드매출 card_sales, POS pos, 배달앱 정산 delivery_app, 부가세 신고서 vat_return, 통장 거래내역 bank_statement, 그 밖 other.
 - 금액은 원 단위 숫자로만 쓴다. "1,234만원" → 12340000.
 - 월은 YYYY-MM 형식. 일별 자료는 월별로 합산해서 넣는다.
-- gross_sales는 월 총매출(카드 승인액, 배달 주문금액, POS 총매출). net_amount는 수수료를 뺀 정산·입금액. 없으면 null.
+- gross_sales는 월 총매출(카드는 취소를 뺀 매출합계, 배달은 주문금액, POS는 총매출). 카드 자료에 승인금액과 매출합계(승인 - 취소)가 같이 있으면 매출합계를 쓴다. net_amount는 수수료를 뺀 정산·입금액. 없으면 null.
 - 부가세 신고서는 monthly를 빈 배열로 두고 과세표준(매출액)을 stated_total에 넣는다. period_start/period_end는 과세기간.
 - stated_total은 자료에 "합계"로 적힌 숫자만 넣는다. 네가 직접 더한 값은 넣지 않는다. 없으면 null.
 - 확인할 수 없는 값은 null. 절대 지어내지 않는다.
