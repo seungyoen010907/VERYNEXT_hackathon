@@ -2,15 +2,17 @@
  * TypeScript 열거형과 SQL enum이 같은 값을 갖는지 검사한다.
  * 프론트엔드·백엔드·DB의 데이터 구조를 하나로 유지하기 위한 테스트다.
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import * as domain from "./domain";
 
-const sql = readFileSync(
-  join(__dirname, "..", "..", "supabase", "migrations", "0001_initial_schema.sql"),
-  "utf8",
-);
+const MIGRATIONS = join(__dirname, "..", "..", "supabase", "migrations");
+const sql = readdirSync(MIGRATIONS)
+  .filter((f) => f.endsWith(".sql"))
+  .sort()
+  .map((f) => readFileSync(join(MIGRATIONS, f), "utf8"))
+  .join("\n");
 
 function sqlEnum(name: string): string[] {
   const match = sql.match(new RegExp(`create type public\\.${name} as enum \\(([^;]*?)\\);`));
@@ -35,6 +37,8 @@ const PAIRS: Array<[string, readonly string[]]> = [
   ["profit_period_type", domain.PROFIT_PERIOD_TYPES],
   ["payback_status", domain.PAYBACK_STATUSES],
   ["chat_role", domain.CHAT_ROLES],
+  ["document_request_status", domain.DOCUMENT_REQUEST_STATUSES],
+  ["activity_type", domain.ACTIVITY_TYPES],
 ];
 
 describe("SQL enum ↔ TypeScript 상수 일치", () => {

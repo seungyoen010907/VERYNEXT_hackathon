@@ -384,7 +384,10 @@ create index revenue_verifications_analysis_idx on public.revenue_verifications 
 
 -- -----------------------------------------------------------------------------
 -- 10. profit_analyses : 수익성 분석 (월별 행 + 평균 행)
--- 비용 컬럼이 NULL이면 확인되지 않은 비용이다. 이때 영업이익은 계산하지 않는다.
+-- 비용 컬럼이 NULL이면 확인되지 않은 비용이다. 0원으로 간주하지 않는다.
+-- 필수 비용(재료비·인건비·임대료·관리비·공과금, 배달 매출이 있으면 배달 수수료)이 하나라도
+-- 확인되지 않으면 영업이익을 계산하지 않는다. 선택 비용(광고비·기타)이 빠지면 영업이익은
+-- "확인된 비용 기준 상한값"이며 is_complete = false 로 표시한다.
 -- -----------------------------------------------------------------------------
 create table public.profit_analyses (
   id                       uuid primary key default gen_random_uuid(),

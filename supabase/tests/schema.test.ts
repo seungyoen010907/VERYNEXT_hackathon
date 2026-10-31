@@ -21,6 +21,8 @@ const EXPECTED_TABLES = [
   "risk_assessments",
   "reports",
   "chat_messages",
+  "document_requests",
+  "activities",
 ];
 
 let db: PGlite;
@@ -66,7 +68,7 @@ afterAll(async () => {
 });
 
 describe("마이그레이션", () => {
-  it("14개 테이블을 모두 생성하고 전부 RLS를 켠다", async () => {
+  it("16개 테이블을 모두 생성하고 전부 RLS를 켠다", async () => {
     const res = await db.query<{ tablename: string; rowsecurity: boolean }>(
       `select tablename, rowsecurity from pg_tables where schemaname = 'public' order by tablename`,
     );

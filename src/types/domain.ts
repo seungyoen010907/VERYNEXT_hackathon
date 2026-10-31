@@ -114,6 +114,23 @@ export type PaybackStatus = (typeof PAYBACK_STATUSES)[number];
 export const CHAT_ROLES = ["user", "assistant"] as const;
 export type ChatRole = (typeof CHAT_ROLES)[number];
 
+export const DOCUMENT_REQUEST_STATUSES = ["open", "fulfilled", "cancelled"] as const;
+export type DocumentRequestStatus = (typeof DOCUMENT_REQUEST_STATUSES)[number];
+
+export const ACTIVITY_TYPES = [
+  "store_created",
+  "store_updated",
+  "document_uploaded",
+  "document_reuploaded",
+  "document_analyzed",
+  "document_failed",
+  "analysis_completed",
+  "risk_detected",
+  "documents_requested",
+  "report_generated",
+] as const;
+export type ActivityType = (typeof ACTIVITY_TYPES)[number];
+
 export const ALLOWED_MIME_TYPES = [
   "application/pdf",
   "application/vnd.ms-excel",
@@ -171,6 +188,69 @@ export const REVENUE_SOURCE_LABELS: Record<RevenueSource, string> = {
   cash: "현금 매출",
   delivery_order: "배달앱 주문액",
   delivery_settlement: "배달앱 정산액",
+};
+
+export const DOCUMENT_STATUS_LABELS: Record<DocumentStatus, string> = {
+  uploaded: "분석 대기",
+  analyzing: "분석 중",
+  analyzed: "분석 완료",
+  failed: "분석 실패",
+};
+
+export const VERIFICATION_STATUS_LABELS: Record<VerificationStatus, string> = {
+  verified: "일치",
+  mismatch: "불일치",
+  unverifiable: "검증 불가",
+  insufficient_data: "자료 부족",
+};
+
+export const REVENUE_CHECK_TYPE_LABELS: Record<RevenueCheckType, string> = {
+  pos_vs_card: "POS ↔ 카드 매출",
+  pos_vs_cash: "POS ↔ 현금 매출",
+  delivery_order_vs_settlement: "배달 주문액 ↔ 정산액",
+  claimed_vs_evidence: "양도인 주장 ↔ 증빙 매출",
+  monthly_change: "월별 매출 변화",
+  data_completeness: "자료 누락·기간",
+};
+
+export const VERIFICATION_LEVEL_LABELS: Record<VerificationLevel, string> = {
+  unverified: "미검증",
+  partial: "부분 검증",
+  verified: "검증됨",
+};
+
+export const PAYBACK_STATUS_LABELS: Record<PaybackStatus, string> = {
+  calculable: "계산 가능",
+  not_recoverable: "회수 불가",
+  not_calculable: "계산 불가",
+};
+
+export const ANALYSIS_STATUS_LABELS: Record<AnalysisStatus, string> = {
+  pending: "대기",
+  running: "진행 중",
+  completed: "완료",
+  failed: "실패",
+};
+
+export const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
+  store_created: "점포 등록",
+  store_updated: "점포 정보 수정",
+  document_uploaded: "자료 업로드",
+  document_reuploaded: "자료 재업로드",
+  document_analyzed: "문서 분석 완료",
+  document_failed: "문서 분석 실패",
+  analysis_completed: "실사 분석 완료",
+  risk_detected: "위험 탐지",
+  documents_requested: "추가 자료 요청",
+  report_generated: "보고서 생성",
+};
+
+export const RISK_LEVEL_ORDER: Record<RiskLevel, number> = {
+  CRITICAL: 4,
+  HIGH: 3,
+  MEDIUM: 2,
+  LOW: 1,
+  UNKNOWN: 0,
 };
 
 // -----------------------------------------------------------------------------
@@ -242,8 +322,35 @@ export interface Document {
   periodStart: string | null;
   periodEnd: string | null;
   errorMessage: string | null;
+  /** 파일 내용의 SHA-256. 같은 점포에 같은 값이 있으면 중복 업로드 가능성 */
+  contentHash: string | null;
+  /** 재업로드한 경우 이전 문서 ID */
+  replacesDocumentId: Uuid | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
+}
+
+export interface DocumentRequest {
+  id: Uuid;
+  storeId: Uuid;
+  requestedBy: Uuid | null;
+  checklistKeys: string[];
+  message: string;
+  status: DocumentRequestStatus;
+  fulfilledAt: Timestamp | null;
+  createdAt: Timestamp;
+}
+
+export interface Activity {
+  id: Uuid;
+  storeId: Uuid;
+  actorId: Uuid | null;
+  type: ActivityType;
+  title: string;
+  detail: Record<string, unknown>;
+  documentId: Uuid | null;
+  analysisId: Uuid | null;
+  createdAt: Timestamp;
 }
 
 export interface ExtractedData {
