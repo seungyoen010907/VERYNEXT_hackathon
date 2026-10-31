@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import ReportView from "@/components/ReportView";
+import VerifyTestPanel from "@/components/VerifyTestPanel";
 import { mockDeal, mockReport } from "@/lib/mock";
 
 // params는 요청이 와야 알 수 있는 값이라 <Suspense>로 감싼다 (cacheComponents 규칙).
@@ -24,7 +24,7 @@ async function ReportLoader({ params }: { params: PageProps<"/deals/[id]/report"
         <h1 className="mt-1 text-xl font-bold">검증 리포트</h1>
         <p className="text-sm text-muted">{mockDeal.address}</p>
       </div>
-      <ReportView report={mockReport} />
+      <VerifyTestPanel initial={mockReport} />
     </div>
   );
 }
