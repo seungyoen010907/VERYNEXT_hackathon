@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+/* 금융 데이터 대시보드 스타일: 흰 배경, 검정·회색 텍스트, 다크 모드 없음 */
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Malgun Gothic",
+    "Segoe UI", sans-serif;
+  font-variant-numeric: tabular-nums;
+}
