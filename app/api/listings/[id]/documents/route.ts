@@ -4,9 +4,8 @@
 import { NextResponse } from "next/server";
 import { getUser } from "@/lib/auth";
 import { handleError, HttpError } from "@/lib/http";
-import { analyzeDocument, assertOwner, DOCUMENT_COLUMNS, getListing } from "@/lib/listings";
-import { detectKind } from "@/lib/prepare";
-import { BUCKET, getSupabase } from "@/lib/supabase";
+import { analyzeDocument, assertOwner, createDocument, getListing } from "@/lib/listings";
+import { getSupabase } from "@/lib/supabase";
 import { DOC_CATEGORIES, type DocCategory } from "@/lib/types";
 
 export const maxDuration = 120; // AI 분석 포함 (Vercel 배포용)
@@ -35,36 +34,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/listings/[i
     if (countError) throw countError;
     if ((count ?? 0) >= MAX_DOCS) throw new HttpError(400, `매물 하나에 자료는 ${MAX_DOCS}개까지 올릴 수 있어요.`);
 
-    // 형식은 파일 내용으로 판별 (아니면 PrepareError → 400)
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const { kind, mime } = detectKind(bytes, file.name);
-
-    // Storage 경로에는 한글 파일명을 쓰지 않는다 (원래 이름은 DB에 저장)
-    const ext = file.name.toLowerCase().split(".").pop() ?? "bin";
-    const storagePath = `${id}/${crypto.randomUUID()}.${ext}`;
-    const { error: upError } = await supabase.storage.from(BUCKET).upload(storagePath, bytes, { contentType: mime });
-    if (upError) throw upError;
-
-    const { data: doc, error } = await supabase
-      .from("documents")
-      .insert({
-        deal_id: id,
-        checklist_key: category,
-        category,
-        file_name: file.name,
-        storage_path: storagePath,
-        kind,
-        size: file.size,
-        access_level: "L3",
-        summary_access_level: "L3",
-      })
-      .select(DOCUMENT_COLUMNS)
-      .single();
-    if (error) {
-      await supabase.storage.from(BUCKET).remove([storagePath]);
-      throw error;
-    }
-
+    const doc = await createDocument(id, file.name, new Uint8Array(await file.arrayBuffer()), category as DocCategory);
     const analyzed = await analyzeDocument(doc);
     return NextResponse.json({ document: { ...analyzed, storage_path: undefined, deal_id: undefined } }, { status: 201 });
   } catch (e) {

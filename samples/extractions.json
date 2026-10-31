@@ -1,0 +1,922 @@
+{
+  "C_샘플국밥/1_카드매출_2026상반기.xlsx": {
+    "lease": null,
+    "monthly": [
+      {
+        "month": "2026-01",
+        "net_amount": null,
+        "gross_sales": 38000000,
+        "order_count": 2533
+      },
+      {
+        "month": "2026-02",
+        "net_amount": null,
+        "gross_sales": 39000000,
+        "order_count": 2600
+      },
+      {
+        "month": "2026-03",
+        "net_amount": null,
+        "gross_sales": 40000000,
+        "order_count": 2667
+      },
+      {
+        "month": "2026-04",
+        "net_amount": null,
+        "gross_sales": 39500000,
+        "order_count": 2633
+      },
+      {
+        "month": "2026-05",
+        "net_amount": null,
+        "gross_sales": 41000000,
+        "order_count": 2733
+      },
+      {
+        "month": "2026-06",
+        "net_amount": null,
+        "gross_sales": 42000000,
+        "order_count": 2800
+      }
+    ],
+    "doc_type": "card_sales",
+    "warnings": [
+      "시연용 가상 자료이며 실제 문서가 아니라고 적혀 있습니다."
+    ],
+    "file_name": "1_카드매출_2026상반기.xlsx",
+    "operation": null,
+    "period_end": "2026-06",
+    "readability": "clear",
+    "period_start": "2026-01",
+    "stated_total": 239500000,
+    "business_name": "샘플국밥",
+    "monthly_costs": [],
+    "facility_items": [],
+    "business_number": "345-67-89012"
+  },
+  "B_샘플카페/1_카드매출_2026상반기.xlsx": {
+    "lease": null,
+    "monthly": [
+      {
+        "month": "2026-01",
+        "net_amount": null,
+        "gross_sales": 26000000,
+        "order_count": 1733
+      },
+      {
+        "month": "2026-02",
+        "net_amount": null,
+        "gross_sales": 27000000,
+        "order_count": 1800
+      },
+      {
+        "month": "2026-03",
+        "net_amount": null,
+        "gross_sales": 26500000,
+        "order_count": 1767
+      },
+      {
+        "month": "2026-04",
+        "net_amount": null,
+        "gross_sales": 28000000,
+        "order_count": 1867
+      },
+      {
+        "month": "2026-05",
+        "net_amount": null,
+        "gross_sales": 29000000,
+        "order_count": 1933
+      },
+      {
+        "month": "2026-06",
+        "net_amount": null,
+        "gross_sales": 29500000,
+        "order_count": 1967
+      }
+    ],
+    "doc_type": "card_sales",
+    "warnings": [
+      "시연용 가상 자료이며 실제 문서가 아니라고 표시되어 있습니다."
+    ],
+    "file_name": "1_카드매출_2026상반기.xlsx",
+    "operation": null,
+    "period_end": "2026-06",
+    "readability": "clear",
+    "period_start": "2026-01",
+    "stated_total": 166000000,
+    "business_name": "샘플카페",
+    "monthly_costs": [],
+    "facility_items": [],
+    "business_number": "234-56-78901"
+  },
+  "1_카드매출_2026상반기.xlsx": {
+    "lease": null,
+    "monthly": [
+      {
+        "month": "2026-01",
+        "net_amount": null,
+        "gross_sales": 22800000,
+        "order_count": 1612
+      },
+      {
+        "month": "2026-02",
+        "net_amount": null,
+        "gross_sales": 23900000,
+        "order_count": 1655
+      },
+      {
+        "month": "2026-03",
+        "net_amount": null,
+        "gross_sales": 25100000,
+        "order_count": 1740
+      },
+      {
+        "month": "2026-04",
+        "net_amount": null,
+        "gross_sales": 26000000,
+        "order_count": 1788
+      },
+      {
+        "month": "2026-05",
+        "net_amount": null,
+        "gross_sales": 26700000,
+        "order_count": 1821
+      },
+      {
+        "month": "2026-06",
+        "net_amount": null,
+        "gross_sales": 27000000,
+        "order_count": 1840
+      }
+    ],
+    "doc_type": "card_sales",
+    "warnings": [],
+    "file_name": "1_카드매출_2026상반기.xlsx",
+    "operation": null,
+    "period_end": "2026-06",
+    "readability": "clear",
+    "period_start": "2026-01",
+    "stated_total": 151500000,
+    "business_name": "샘플분식",
+    "monthly_costs": [],
+    "facility_items": [],
+    "business_number": "123-45-67890"
+  },
+  "B_샘플카페/2_배달앱_정산내역.csv": {
+    "lease": null,
+    "monthly": [
+      {
+        "month": "2026-01",
+        "net_amount": 2291300,
+        "gross_sales": 3000000,
+        "order_count": 143
+      },
+      {
+        "month": "2026-02",
+        "net_amount": 2445600,
+        "gross_sales": 3200000,
+        "order_count": 152
+      },
+      {
+        "month": "2026-03",
+        "net_amount": 2367000,
+        "gross_sales": 3100000,
+        "order_count": 148
+      },
+      {
+        "month": "2026-04",
+        "net_amount": 2521300,
+        "gross_sales": 3300000,
+        "order_count": 157
+      },
+      {
+        "month": "2026-05",
+        "net_amount": 2672700,
+        "gross_sales": 3500000,
+        "order_count": 167
+      },
+      {
+        "month": "2026-06",
+        "net_amount": 2597000,
+        "gross_sales": 3400000,
+        "order_count": 162
+      }
+    ],
+    "doc_type": "delivery_app",
+    "warnings": [],
+    "file_name": "2_배달앱_정산내역.csv",
+    "operation": null,
+    "period_end": "2026-06",
+    "readability": "clear",
+    "period_start": "2026-01",
+    "stated_total": null,
+    "business_name": "샘플카페",
+    "monthly_costs": [],
+    "facility_items": [],
+    "business_number": null
+  },
+  "C_샘플국밥/2_부가세신고_요약.pdf": {
+    "lease": null,
+    "monthly": [],
+    "doc_type": "vat_return",
+    "warnings": [
+      "문서 하단에 시연용 가상 자료이며 실제 문서가 아니라고 적혀 있습니다."
+    ],
+    "file_name": "2_부가세신고_요약.pdf",
+    "operation": null,
+    "period_end": "2026-06",
+    "readability": "clear",
+    "period_start": "2026-01",
+    "stated_total": 250000000,
+    "business_name": "샘플국밥",
+    "monthly_costs": [],
+    "facility_items": [],
+    "business_number": "345-67-89012"
+  },
+  "2_배달앱_정산내역.csv": {
+    "lease": null,
+    "monthly": [
+      {
+        "month": "2026-01",
+        "net_amount": 4065800,
+        "gross_sales": 5800000,
+        "order_count": 402
+      },
+      {
+        "month": "2026-02",
+        "net_amount": 4281300,
+        "gross_sales": 6100000,
+        "order_count": 421
+      },
+      {
+        "month": "2026-03",
+        "net_amount": 4563800,
+        "gross_sales": 6500000,
+        "order_count": 448
+      },
+      {
+        "month": "2026-04",
+        "net_amount": 4860800,
+        "gross_sales": 6900000,
+        "order_count": 470
+      },
+      {
+        "month": "2026-05",
+        "net_amount": 5143300,
+        "gross_sales": 7300000,
+        "order_count": 497
+      },
+      {
+        "month": "2026-06",
+        "net_amount": 5076300,
+        "gross_sales": 7200000,
+        "order_count": 489
+      }
+    ],
+    "doc_type": "delivery_app",
+    "warnings": [],
+    "file_name": "2_배달앱_정산내역.csv",
+    "operation": null,
+    "period_end": "2026-06",
+    "readability": "clear",
+    "period_start": "2026-01",
+    "stated_total": null,
+    "business_name": "샘플분식",
+    "monthly_costs": [],
+    "facility_items": [],
+    "business_number": null
+  },
+  "C_샘플국밥/3_임대차계약서_요약.pdf": {
+    "lease": {
+      "end": "2028-05",
+      "start": "2026-06",
+      "deposit": 50000000,
+      "monthly_rent": 4000000,
+      "maintenance_fee": 300000
+    },
+    "monthly": [],
+    "doc_type": "lease_contract",
+    "warnings": [
+      "시연용 가상 자료이며 실제 문서가 아니라고 적혀 있습니다.",
+      "임대차계약서 요약본입니다.",
+      "월세 4,000,000원은 부가세 별도 금액입니다."
+    ],
+    "file_name": "3_임대차계약서_요약.pdf",
+    "operation": null,
+    "period_end": "2028-05",
+    "readability": "clear",
+    "period_start": "2026-06",
+    "stated_total": null,
+    "business_name": "샘플국밥",
+    "monthly_costs": [],
+    "facility_items": [],
+    "business_number": null
+  },
+  "B_샘플카페/3_POS_월별매출_캡처.png": {
+    "lease": null,
+    "monthly": [
+      {
+        "month": "2026-01",
+        "net_amount": null,
+        "gross_sales": 30200000,
+        "order_count": null
+      },
+      {
+        "month": "2026-02",
+        "net_amount": null,
+        "gross_sales": 31400000,
+        "order_count": null
+      },
+      {
+        "month": "2026-03",
+        "net_amount": null,
+        "gross_sales": 30800000,
+        "order_count": null
+      },
+      {
+        "month": "2026-04",
+        "net_amount": null,
+        "gross_sales": 32600000,
+        "order_count": null
+      },
+      {
+        "month": "2026-05",
+        "net_amount": null,
+        "gross_sales": 33800000,
+        "order_count": null
+      },
+      {
+        "month": "2026-06",
+        "net_amount": null,
+        "gross_sales": 34200000,
+        "order_count": null
+      }
+    ],
+    "doc_type": "pos",
+    "warnings": [
+      "문서 하단에 시연용 가상 자료이며 실제 문서가 아니라고 적혀 있습니다."
+    ],
+    "file_name": "3_POS_월별매출_캡처.png",
+    "operation": null,
+    "period_end": "2026-06",
+    "readability": "clear",
+    "period_start": "2026-01",
+    "stated_total": 193000000,
+    "business_name": "샘플카페",
+    "monthly_costs": [],
+    "facility_items": [],
+    "business_number": null
+  },
+  "3_POS_월별리포트_캡처.png": {
+    "lease": null,
+    "monthly": [
+      {
+        "month": "2026-01",
+        "net_amount": null,
+        "gross_sales": 29500000,
+        "order_count": 2174
+      },
+      {
+        "month": "2026-02",
+        "net_amount": null,
+        "gross_sales": 30800000,
+        "order_count": 2236
+      },
+      {
+        "month": "2026-03",
+        "net_amount": null,
+        "gross_sales": 32500000,
+        "order_count": 2348
+      },
+      {
+        "month": "2026-04",
+        "net_amount": null,
+        "gross_sales": 33800000,
+        "order_count": 2418
+      },
+      {
+        "month": "2026-05",
+        "net_amount": null,
+        "gross_sales": 35000000,
+        "order_count": 2478
+      },
+      {
+        "month": "2026-06",
+        "net_amount": null,
+        "gross_sales": 48200000,
+        "order_count": 2489
+      }
+    ],
+    "doc_type": "pos",
+    "warnings": [],
+    "file_name": "3_POS_월별리포트_캡처.png",
+    "operation": null,
+    "period_end": "2026-06",
+    "readability": "clear",
+    "period_start": "2026-01",
+    "stated_total": 209800000,
+    "business_name": "샘플분식",
+    "monthly_costs": [],
+    "facility_items": [],
+    "business_number": null
+  },
+  "4_부가세신고_요약.pdf": {
+    "lease": null,
+    "monthly": [],
+    "doc_type": "vat_return",
+    "warnings": [
+      "문서 하단에 시연용 가상 자료이며 실제 국세청 문서가 아니라고 적혀 있습니다."
+    ],
+    "file_name": "4_부가세신고_요약.pdf",
+    "operation": null,
+    "period_end": "2026-06",
+    "readability": "clear",
+    "period_start": "2026-01",
+    "stated_total": 195000000,
+    "business_name": "샘플분식",
+    "monthly_costs": [],
+    "facility_items": [],
+    "business_number": "123-45-67890"
+  },
+  "B_샘플카페/4_비용내역_2026상반기.xlsx": {
+    "lease": null,
+    "monthly": [],
+    "doc_type": "cost_statement",
+    "warnings": [
+      "문서에 시연용 가상 자료이며 실제 문서가 아니라고 적혀 있습니다."
+    ],
+    "file_name": "4_비용내역_2026상반기.xlsx",
+    "operation": {
+      "staff_count": 2,
+      "owner_weekly_hours": 70
+    },
+    "period_end": "2026-06",
+    "readability": "clear",
+    "period_start": "2026-01",
+    "stated_total": null,
+    "business_name": "샘플카페",
+    "monthly_costs": [
+      {
+        "month": "2026-01",
+        "amount": 9600000,
+        "category": "ingredients"
+      },
+      {
+        "month": "2026-01",
+        "amount": 7500000,
+        "category": "labor"
+      },
+      {
+        "month": "2026-01",
+        "amount": 850000,
+        "category": "utilities"
+      },
+      {
+        "month": "2026-01",
+        "amount": 3500000,
+        "category": "rent"
+      },
+      {
+        "month": "2026-01",
+        "amount": 800000,
+        "category": "fees"
+      },
+      {
+        "month": "2026-01",
+        "amount": 650000,
+        "category": "other"
+      },
+      {
+        "month": "2026-02",
+        "amount": 9900000,
+        "category": "ingredients"
+      },
+      {
+        "month": "2026-02",
+        "amount": 7500000,
+        "category": "labor"
+      },
+      {
+        "month": "2026-02",
+        "amount": 820000,
+        "category": "utilities"
+      },
+      {
+        "month": "2026-02",
+        "amount": 3500000,
+        "category": "rent"
+      },
+      {
+        "month": "2026-02",
+        "amount": 820000,
+        "category": "fees"
+      },
+      {
+        "month": "2026-02",
+        "amount": 650000,
+        "category": "other"
+      },
+      {
+        "month": "2026-03",
+        "amount": 9800000,
+        "category": "ingredients"
+      },
+      {
+        "month": "2026-03",
+        "amount": 7500000,
+        "category": "labor"
+      },
+      {
+        "month": "2026-03",
+        "amount": 840000,
+        "category": "utilities"
+      },
+      {
+        "month": "2026-03",
+        "amount": 3500000,
+        "category": "rent"
+      },
+      {
+        "month": "2026-03",
+        "amount": 810000,
+        "category": "fees"
+      },
+      {
+        "month": "2026-03",
+        "amount": 650000,
+        "category": "other"
+      },
+      {
+        "month": "2026-04",
+        "amount": 10200000,
+        "category": "ingredients"
+      },
+      {
+        "month": "2026-04",
+        "amount": 7500000,
+        "category": "labor"
+      },
+      {
+        "month": "2026-04",
+        "amount": 900000,
+        "category": "utilities"
+      },
+      {
+        "month": "2026-04",
+        "amount": 3500000,
+        "category": "rent"
+      },
+      {
+        "month": "2026-04",
+        "amount": 850000,
+        "category": "fees"
+      },
+      {
+        "month": "2026-04",
+        "amount": 650000,
+        "category": "other"
+      },
+      {
+        "month": "2026-05",
+        "amount": 10500000,
+        "category": "ingredients"
+      },
+      {
+        "month": "2026-05",
+        "amount": 7500000,
+        "category": "labor"
+      },
+      {
+        "month": "2026-05",
+        "amount": 960000,
+        "category": "utilities"
+      },
+      {
+        "month": "2026-05",
+        "amount": 3500000,
+        "category": "rent"
+      },
+      {
+        "month": "2026-05",
+        "amount": 880000,
+        "category": "fees"
+      },
+      {
+        "month": "2026-05",
+        "amount": 650000,
+        "category": "other"
+      },
+      {
+        "month": "2026-06",
+        "amount": 10600000,
+        "category": "ingredients"
+      },
+      {
+        "month": "2026-06",
+        "amount": 7500000,
+        "category": "labor"
+      },
+      {
+        "month": "2026-06",
+        "amount": 1030000,
+        "category": "utilities"
+      },
+      {
+        "month": "2026-06",
+        "amount": 3500000,
+        "category": "rent"
+      },
+      {
+        "month": "2026-06",
+        "amount": 890000,
+        "category": "fees"
+      },
+      {
+        "month": "2026-06",
+        "amount": 650000,
+        "category": "other"
+      }
+    ],
+    "facility_items": [],
+    "business_number": null
+  },
+  "B_샘플카페/5_임대차계약서_요약.pdf": {
+    "lease": {
+      "end": "2027-07",
+      "start": "2024-08",
+      "deposit": 40000000,
+      "monthly_rent": 3500000,
+      "maintenance_fee": 250000
+    },
+    "monthly": [],
+    "doc_type": "lease_contract",
+    "warnings": [
+      "월세 3,500,000원은 부가세 별도 금액입니다.",
+      "임대차계약서 요약본입니다.",
+      "문서에 시연용 가상 자료이며 실제 문서가 아니라고 적혀 있습니다."
+    ],
+    "file_name": "5_임대차계약서_요약.pdf",
+    "operation": null,
+    "period_end": "2027-07",
+    "readability": "clear",
+    "period_start": "2024-08",
+    "stated_total": null,
+    "business_name": "샘플카페",
+    "monthly_costs": [],
+    "facility_items": [],
+    "business_number": null
+  },
+  "5_비용내역_2026상반기.xlsx": {
+    "lease": null,
+    "monthly": [],
+    "doc_type": "cost_statement",
+    "warnings": [
+      "시연용 가상 자료이며 실제 문서가 아니라고 명시되어 있습니다."
+    ],
+    "file_name": "5_비용내역_2026상반기.xlsx",
+    "operation": {
+      "staff_count": 2,
+      "owner_weekly_hours": 60
+    },
+    "period_end": "2026-06",
+    "readability": "clear",
+    "period_start": "2026-01",
+    "stated_total": null,
+    "business_name": "샘플분식",
+    "monthly_costs": [
+      {
+        "month": "2026-01",
+        "amount": 9500000,
+        "category": "ingredients"
+      },
+      {
+        "month": "2026-01",
+        "amount": 7800000,
+        "category": "labor"
+      },
+      {
+        "month": "2026-01",
+        "amount": 950000,
+        "category": "utilities"
+      },
+      {
+        "month": "2026-01",
+        "amount": 2500000,
+        "category": "rent"
+      },
+      {
+        "month": "2026-01",
+        "amount": 700000,
+        "category": "fees"
+      },
+      {
+        "month": "2026-01",
+        "amount": 600000,
+        "category": "other"
+      },
+      {
+        "month": "2026-02",
+        "amount": 9900000,
+        "category": "ingredients"
+      },
+      {
+        "month": "2026-02",
+        "amount": 7800000,
+        "category": "labor"
+      },
+      {
+        "month": "2026-02",
+        "amount": 920000,
+        "category": "utilities"
+      },
+      {
+        "month": "2026-02",
+        "amount": 2500000,
+        "category": "rent"
+      },
+      {
+        "month": "2026-02",
+        "amount": 720000,
+        "category": "fees"
+      },
+      {
+        "month": "2026-02",
+        "amount": 600000,
+        "category": "other"
+      },
+      {
+        "month": "2026-03",
+        "amount": 10400000,
+        "category": "ingredients"
+      },
+      {
+        "month": "2026-03",
+        "amount": 7800000,
+        "category": "labor"
+      },
+      {
+        "month": "2026-03",
+        "amount": 880000,
+        "category": "utilities"
+      },
+      {
+        "month": "2026-03",
+        "amount": 2500000,
+        "category": "rent"
+      },
+      {
+        "month": "2026-03",
+        "amount": 750000,
+        "category": "fees"
+      },
+      {
+        "month": "2026-03",
+        "amount": 600000,
+        "category": "other"
+      },
+      {
+        "month": "2026-04",
+        "amount": 10800000,
+        "category": "ingredients"
+      },
+      {
+        "month": "2026-04",
+        "amount": 7800000,
+        "category": "labor"
+      },
+      {
+        "month": "2026-04",
+        "amount": 850000,
+        "category": "utilities"
+      },
+      {
+        "month": "2026-04",
+        "amount": 2500000,
+        "category": "rent"
+      },
+      {
+        "month": "2026-04",
+        "amount": 780000,
+        "category": "fees"
+      },
+      {
+        "month": "2026-04",
+        "amount": 600000,
+        "category": "other"
+      },
+      {
+        "month": "2026-05",
+        "amount": 11200000,
+        "category": "ingredients"
+      },
+      {
+        "month": "2026-05",
+        "amount": 7800000,
+        "category": "labor"
+      },
+      {
+        "month": "2026-05",
+        "amount": 900000,
+        "category": "utilities"
+      },
+      {
+        "month": "2026-05",
+        "amount": 2500000,
+        "category": "rent"
+      },
+      {
+        "month": "2026-05",
+        "amount": 800000,
+        "category": "fees"
+      },
+      {
+        "month": "2026-05",
+        "amount": 600000,
+        "category": "other"
+      },
+      {
+        "month": "2026-06",
+        "amount": 11300000,
+        "category": "ingredients"
+      },
+      {
+        "month": "2026-06",
+        "amount": 7800000,
+        "category": "labor"
+      },
+      {
+        "month": "2026-06",
+        "amount": 1050000,
+        "category": "utilities"
+      },
+      {
+        "month": "2026-06",
+        "amount": 2500000,
+        "category": "rent"
+      },
+      {
+        "month": "2026-06",
+        "amount": 810000,
+        "category": "fees"
+      },
+      {
+        "month": "2026-06",
+        "amount": 600000,
+        "category": "other"
+      }
+    ],
+    "facility_items": [],
+    "business_number": null
+  },
+  "B_샘플카페/6_시설목록.pdf": {
+    "lease": null,
+    "monthly": [],
+    "doc_type": "facility",
+    "warnings": [
+      "문서에 시연용 가상 자료이며 실제 문서가 아니라고 적혀 있습니다."
+    ],
+    "file_name": "6_시설목록.pdf",
+    "operation": null,
+    "period_end": null,
+    "readability": "clear",
+    "period_start": null,
+    "stated_total": null,
+    "business_name": "샘플카페",
+    "monthly_costs": [],
+    "facility_items": [
+      "커피 머신(에스프레소 머신 2그룹 1대)",
+      "그라인더 2대",
+      "제빙기 1대",
+      "냉장 쇼케이스 1대",
+      "테이블·의자 24석",
+      "인테리어(2024년 시공, 일체 양도)"
+    ],
+    "business_number": null
+  },
+  "6_임대차계약서_요약.pdf": {
+    "lease": {
+      "end": "2028-03",
+      "start": "2025-04",
+      "deposit": 30000000,
+      "monthly_rent": 2500000,
+      "maintenance_fee": 150000
+    },
+    "monthly": [],
+    "doc_type": "lease_contract",
+    "warnings": [
+      "시연용 가상 자료이며 실제 문서가 아니라고 적혀 있습니다.",
+      "월 차임 2,500,000원은 부가세 별도 금액입니다.",
+      "계약서 요약본으로, 권리금 회수 기회 보호 조항은 포함 여부만 적혀 있고 구체적인 내용은 없습니다."
+    ],
+    "file_name": "6_임대차계약서_요약.pdf",
+    "operation": null,
+    "period_end": "2028-03",
+    "readability": "clear",
+    "period_start": "2025-04",
+    "stated_total": null,
+    "business_name": "샘플분식",
+    "monthly_costs": [],
+    "facility_items": [],
+    "business_number": null
+  }
+}

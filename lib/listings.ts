@@ -5,9 +5,9 @@ import "server-only";
 import { getUser, type CurrentUser } from "./auth";
 import { HttpError } from "./http";
 import { extractDocuments } from "./openai";
-import { prepareFile } from "./prepare";
+import { detectKind, prepareFile } from "./prepare";
 import { BUCKET, getSupabase } from "./supabase";
-import type { AccessLevel, ExtractedDocument, Listing, ListingDocument, PublicListing } from "./types";
+import type { AccessLevel, DocCategory, ExtractedDocument, Listing, ListingDocument, PublicListing } from "./types";
 
 export const DOCUMENT_COLUMNS =
   "id, created_at, updated_at, file_name, kind, size, category, access_level, summary_access_level, extraction, verification_status, storage_path, deal_id";
@@ -124,22 +124,54 @@ export function toDataPoints(listingId: string, documentId: string, ex: Extracte
   return rows;
 }
 
+export type StoredDocument = ListingDocument & { storage_path: string; deal_id: string };
+
+// 파일을 Storage에 올리고 documents에 한 줄 만든다. 형식은 파일 내용으로 판별 (아니면 PrepareError → 400).
+export async function createDocument(
+  listingId: string,
+  fileName: string,
+  bytes: Uint8Array,
+  category: DocCategory,
+  levels: { access_level: AccessLevel; summary_access_level: AccessLevel } = { access_level: "L3", summary_access_level: "L3" },
+): Promise<StoredDocument> {
+  const supabase = getSupabase();
+  const { kind, mime } = detectKind(bytes, fileName);
+  // Storage 경로에는 한글 파일명을 쓰지 않는다 (원래 이름은 DB에 저장)
+  const ext = fileName.toLowerCase().split(".").pop() ?? "bin";
+  const storagePath = `${listingId}/${crypto.randomUUID()}.${ext}`;
+  const { error: upError } = await supabase.storage.from(BUCKET).upload(storagePath, bytes, { contentType: mime });
+  if (upError) throw upError;
+
+  const { data, error } = await supabase
+    .from("documents")
+    .insert({ deal_id: listingId, checklist_key: category, category, file_name: fileName, storage_path: storagePath, kind, size: bytes.length, ...levels })
+    .select(DOCUMENT_COLUMNS)
+    .single();
+  if (error) {
+    await supabase.storage.from(BUCKET).remove([storagePath]);
+    throw error;
+  }
+  return data as StoredDocument;
+}
+
 // 자료 하나를 AI로 분석해 저장한다. 이미 분석한 자료는 다시 분석하지 않는다 (API 비용 절약).
 // AI가 실패해도 자료 자체는 남고 verification_status만 ai_failed가 된다.
-export async function analyzeDocument(doc: ListingDocument & { storage_path: string; deal_id: string }) {
+// cached를 주면 AI를 부르지 않고 그 결과를 쓴다 (같은 샘플 파일을 매번 다시 분석하지 않게).
+export async function analyzeDocument(doc: StoredDocument, cached?: ExtractedDocument) {
   if (doc.extraction || doc.kind === "report") return doc;
   const supabase = getSupabase();
 
-  const { data: file, error: dlError } = await supabase.storage.from(BUCKET).download(doc.storage_path);
-  if (dlError || !file) throw dlError ?? new Error("파일을 내려받지 못했어요.");
-
-  let extracted: ExtractedDocument | undefined;
-  try {
-    const content = prepareFile(doc.file_name, new Uint8Array(await file.arrayBuffer()));
-    const result = await extractDocuments(content);
-    extracted = result.documents[0];
-  } catch (e) {
-    console.error("[analyzeDocument]", e);
+  let extracted: ExtractedDocument | undefined = cached;
+  if (!extracted) {
+    try {
+      const { data: file, error: dlError } = await supabase.storage.from(BUCKET).download(doc.storage_path);
+      if (dlError || !file) throw dlError ?? new Error("파일을 내려받지 못했어요.");
+      const content = prepareFile(doc.file_name, new Uint8Array(await file.arrayBuffer()));
+      const result = await extractDocuments(content);
+      extracted = result.documents[0];
+    } catch (e) {
+      console.error("[analyzeDocument]", e);
+    }
   }
 
   if (!extracted) {
