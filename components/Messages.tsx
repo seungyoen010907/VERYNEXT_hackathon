@@ -88,7 +88,7 @@ export default function Messages({ listingId, buyerQuery, role }: { listingId: s
     <div className="flex h-full flex-col">
       <ul ref={listRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-4 md:px-6">
         {!loaded && !error && <li className="text-sm text-muted">불러오는 중...</li>}
-        {loaded && messages.length === 0 && <li className="text-sm text-muted">아직 메시지가 없어요.</li>}
+        {loaded && messages.length === 0 && <li className="text-sm text-muted">아직 메시지가 없어요. 먼저 인사해 보세요.</li>}
         {messages.map((m) => {
           if (m.role === "agent") {
             return (
@@ -122,7 +122,7 @@ export default function Messages({ listingId, buyerQuery, role }: { listingId: s
           value={body}
           onChange={(e) => setBody(e.target.value)}
           maxLength={2000}
-          placeholder={`${ROLE_LABEL[role]}으로 메시지 보내기`}
+          placeholder="메시지를 입력하세요"
           className="min-w-0 flex-1 rounded-lg bg-bg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-accent/30"
         />
         <button

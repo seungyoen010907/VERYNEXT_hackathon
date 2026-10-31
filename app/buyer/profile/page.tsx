@@ -42,7 +42,7 @@ export default function BuyerProfilePage() {
   }, [user.id]);
 
   if (user.role !== "buyer") {
-    return <p className="mx-auto max-w-2xl rounded-xl bg-card p-6 text-center text-sm text-muted">인수 조건은 양수인만 입력해요. 헤더에서 &quot;양수인&quot;을 골라주세요.</p>;
+    return <p className="mx-auto max-w-2xl rounded-xl bg-card p-6 text-center text-sm text-muted">인수 조건은 양수인 모드에서 넣어요. 위에서 &quot;양수인&quot;을 눌러 주세요.</p>;
   }
   if (!form) return <p className="text-sm text-muted">{error ?? "불러오는 중..."}</p>;
 
@@ -69,7 +69,7 @@ export default function BuyerProfilePage() {
           notes: form!.notes,
         }),
       });
-      setMsg("저장했어요. 추천 점수와 AI 실사 질문에 바로 반영돼요.");
+      setMsg("저장했어요. 추천과 AI 실사에 바로 반영돼요.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "저장하지 못했어요.");
     } finally {
@@ -80,12 +80,12 @@ export default function BuyerProfilePage() {
   return (
     <form onSubmit={save} className="mx-auto max-w-2xl space-y-6">
       <div>
-        <h1 className="text-xl font-bold">인수 조건</h1>
-        <p className="mt-1 text-sm text-muted">내 AI 에이전트가 이 조건으로 매물을 추천하고, 매물마다 필요한 질문을 만들어요.</p>
+        <h1 className="text-xl font-bold">내 조건</h1>
+        <p className="mt-1 text-sm text-muted">알려주신 조건으로 맞는 매물을 추천하고, 매물마다 꼭 필요한 것만 물어봐요.</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="투자 가능 총예산 (만원)" hint="권리금 + 보증금 + 추가 투자비를 모두 포함해요">
+        <Field label="투자 가능 총예산 (만원)" hint="권리금, 보증금, 추가로 들 돈을 모두 더한 금액이에요">
           <input value={form.budget} onChange={set("budget", true)} inputMode="numeric" placeholder="15000" className={INPUT} />
           <Hint>{man(form.budget)}</Hint>
         </Field>
@@ -96,16 +96,16 @@ export default function BuyerProfilePage() {
         <Field label="희망 지역 (쉼표로 구분)">
           <input value={form.regions} onChange={set("regions")} placeholder="서울, 마포구" className={INPUT} />
         </Field>
-        <Field label="직접 근무 가능 시간 (주당 시간)">
+        <Field label="일주일에 직접 일할 수 있는 시간">
           <input value={form.hours} onChange={set("hours", true)} inputMode="numeric" placeholder="40" className={INPUT} />
         </Field>
-        <Field label="목표 투자금 회수 기간 (개월)">
+        <Field label="몇 개월 안에 돌려받고 싶나요?">
           <input value={form.payback} onChange={set("payback", true)} inputMode="numeric" placeholder="24" className={INPUT} />
         </Field>
-        <Field label="관련 업종 운영 경험">
+        <Field label="비슷한 일을 해 본 경험">
           <input value={form.experience} onChange={set("experience")} maxLength={300} placeholder="외식업 아르바이트 2년" className={INPUT} />
         </Field>
-        <Field label="선호 업종" full>
+        <Field label="관심 있는 업종" full>
           <div className="flex flex-wrap gap-2">
             {BUSINESS_TYPES.map((t) => {
               const on = form.types.includes(t);
@@ -123,7 +123,7 @@ export default function BuyerProfilePage() {
             })}
           </div>
         </Field>
-        <Field label="추가 선호 조건" full>
+        <Field label="그 밖에 원하는 점" full>
           <textarea value={form.notes} onChange={set("notes")} maxLength={500} rows={2} placeholder="직원 2명 이하로 운영하고 싶어요" className={INPUT} />
         </Field>
       </div>
@@ -131,7 +131,7 @@ export default function BuyerProfilePage() {
       {error && <p className="rounded-lg border border-warn/30 bg-warn/10 p-3 text-sm text-warn">{error}</p>}
       {msg && <p className="rounded-lg bg-accent/10 p-3 text-sm text-accent">{msg}</p>}
       <button type="submit" disabled={saving} className="w-full rounded-lg bg-accent py-3 font-medium text-white disabled:opacity-60">
-        {saving ? "저장하는 중..." : "인수 조건 저장"}
+        {saving ? "저장하는 중..." : "저장하기"}
       </button>
     </form>
   );

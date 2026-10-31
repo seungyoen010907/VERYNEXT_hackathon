@@ -32,7 +32,7 @@ export default function DealsPage() {
     <div className="mx-auto max-w-2xl space-y-4">
       <div>
         <h1 className="text-xl font-bold">내 거래방</h1>
-        <p className="text-sm text-muted">양도인과 양수인이 직접 대화하고 계약 단계를 함께 체크하는 곳이에요.</p>
+        <p className="text-sm text-muted">양도인과 양수인이 직접 이야기하고, 계약까지 할 일을 함께 챙겨요.</p>
       </div>
 
       {error ? (
@@ -43,10 +43,10 @@ export default function DealsPage() {
         <div className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted">
           아직 거래방이 없어요.{" "}
           {seller ? (
-            "양수인이 내 매물에서 거래방을 열면 여기에 보여요."
+            "양수인이 거래방을 열면 여기에 보여요."
           ) : (
             <Link href="/listings" className="text-accent">
-              매물에서 거래방 열기
+              매물 보러 가기
             </Link>
           )}
         </div>
@@ -65,7 +65,7 @@ export default function DealsPage() {
                 </p>
                 <p className="mt-1 font-bold">{d.title}</p>
                 <p className="mt-1 text-sm text-muted">
-                  {d.completed ? "모든 단계 완료" : stageTitle(d.stage)} · 내 할 일 {d.todo_count}개
+                  {d.completed ? "모든 단계를 마쳤어요" : stageTitle(d.stage)} · 내 할 일 {d.todo_count}개
                 </p>
               </Link>
             </li>

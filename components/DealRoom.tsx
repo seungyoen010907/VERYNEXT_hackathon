@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import Checklist from "@/components/Checklist";
 import Messages from "@/components/Messages";
 import Roadmap from "@/components/Roadmap";
-import { ROLE_LABEL, useUser } from "@/components/RoleSwitch";
+import { useUser } from "@/components/RoleSwitch";
 import { apiFetch } from "@/lib/api-client";
 import { won } from "@/lib/format";
 import { getRoadmap, stageTitle, templateFor } from "@/lib/roadmap";
@@ -113,7 +113,7 @@ export default function DealRoom({ id, buyer }: { id: string; buyer: string | nu
               <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
             </svg>
           </button>
-          {sidebarOpen && <span className="text-sm text-muted">{ROLE_LABEL[role]}의 할 일과 자료</span>}
+          {sidebarOpen && <span className="text-sm text-muted">내 할 일과 자료</span>}
         </div>
 
         {sidebarOpen && (
@@ -139,20 +139,20 @@ export default function DealRoom({ id, buyer }: { id: string; buyer: string | nu
               <h2 className="font-bold">자료</h2>
               <p className="text-sm text-muted">
                 {room.is_owner
-                  ? "자료는 데이터룸에 올리고 공개 등급을 정해요. 양수인에게 공개한(L0~L2) 자료만 체크리스트에 반영돼요."
-                  : "양도인이 공개한 자료는 데이터룸에서 볼 수 있어요. 잠긴 자료는 NDA 동의나 열람 요청이 필요해요."}
+                  ? "자료는 자료실에 올려 주세요. 양수인에게 공개한 자료는 체크리스트에 자동으로 체크돼요."
+                  : "양도인이 공개한 자료는 자료실에서 볼 수 있어요. 잠긴 자료는 NDA에 동의하거나 요청해 주세요."}
               </p>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
                 <Link href={`/listings/${l.id}`} className="text-accent">
-                  데이터룸 보기
+                  자료실 보기
                 </Link>
                 {room.is_owner ? (
                   <Link href={`/listings/${l.id}/requests`} className="text-accent">
-                    구매자 요청 관리
+                    받은 요청
                   </Link>
                 ) : (
                   <Link href={`/listings/${l.id}/report`} className="text-accent">
-                    AI 실사 리포트
+                    리포트 보기
                   </Link>
                 )}
               </div>
@@ -166,8 +166,8 @@ export default function DealRoom({ id, buyer }: { id: string; buyer: string | nu
         <div className="shrink-0 space-y-4 px-4 pt-5 pb-4 md:px-6">
           <div className="min-w-0">
             <p className="text-xs text-muted">
-              거래방 · {l.business_type} · 지금 {ROLE_LABEL[role]} 화면
-              {l.is_sample && " · 샘플 데이터"}
+              거래방 · {l.business_type}
+              {l.is_sample && " · 샘플"}
             </p>
             <h1 className="mt-1 text-xl font-bold">{title}</h1>
           </div>

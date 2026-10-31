@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Noto_Sans_KR } from "next/font/google";
 import Link from "next/link";
+import { Suspense } from "react";
+import MainNav from "@/components/MainNav";
 import RoleSwitch, { RoleProvider } from "@/components/RoleSwitch";
 import "./globals.css";
 
@@ -12,7 +14,7 @@ const notoSansKr = Noto_Sans_KR({
 
 export const metadata: Metadata = {
   title: "AI 점포 양도양수 에이전트",
-  description: "양도인 매출 자료를 검증하고 계약 절차를 안내하는 거래방",
+  description: "점포를 넘기고 인수할 때, AI가 매출 자료를 먼저 확인해 드려요",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -25,21 +27,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 md:h-16 md:py-0 md:px-6">
               <Link href="/" className="min-w-0">
                 <p className="font-bold">AI 점포 양도양수 에이전트</p>
-                <p className="text-xs text-muted">AI 에이전트가 매물 정보를 주고받는 인수 실사</p>
+                <p className="text-xs text-muted">매출 자료는 AI가 먼저 확인해요</p>
               </Link>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2 whitespace-nowrap">
-                <Link href="/dashboard" className="text-sm text-muted hover:text-text">
-                  대시보드
-                </Link>
-                <Link href="/listings" className="text-sm text-muted hover:text-text">
-                  매물
-                </Link>
-                <Link href="/diligence" className="text-sm text-muted hover:text-text">
-                  AI 실사
-                </Link>
-                <Link href="/deals" className="text-sm text-muted hover:text-text">
-                  내 거래방 목록
-                </Link>
+                {/* 주소(usePathname)를 읽는 메뉴라 <Suspense>로 감싼다 (cacheComponents 규칙) */}
+                <Suspense fallback={<span className="w-64" />}>
+                  <MainNav />
+                </Suspense>
                 <RoleSwitch />
               </div>
             </div>

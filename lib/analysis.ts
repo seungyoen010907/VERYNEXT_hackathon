@@ -35,6 +35,7 @@ export type SalesEvidence = {
   excluded: { month: string; reason: string }[];
   basis: string;
   warnings: string[];
+  months: { month: string; card_delivery: number | null; pos: number | null; flagged: boolean; confirmed: boolean }[]; // 월별 그래프용
 };
 
 function monthRange(start: string, end: string): string[] {
@@ -63,6 +64,7 @@ export function salesEvidence(report: Report | null, claimedCash: number | null,
     excluded: [],
     basis: "검증 리포트를 볼 수 없어요",
     warnings: [],
+    months: [],
   };
   if (!report) return empty;
 
@@ -128,6 +130,13 @@ export function salesEvidence(report: Report | null, claimedCash: number | null,
       " 매출은 POS와 배달을 더하지 않아 중복 합산하지 않아요." +
       deliveryNote,
     warnings,
+    months: report.monthly.map((r) => ({
+      month: r.month,
+      card_delivery: r.card_plus_delivery,
+      pos: r.pos,
+      flagged: excluded.some((e) => e.month === r.month && e.reason.startsWith("POS")),
+      confirmed: verifiedMonths.includes(r.month),
+    })),
   };
 }
 
@@ -135,13 +144,13 @@ export function salesEvidence(report: Report | null, claimedCash: number | null,
 
 export type FacilityVerdict = "ok" | "over" | "under" | "no_claim" | "unknown" | "interior" | "excluded";
 export const FACILITY_VERDICT_LABEL: Record<FacilityVerdict, string> = {
-  ok: "시세 범위 내",
-  over: "반영가가 추정 범위 상단 초과",
-  under: "반영가가 추정 범위보다 낮음",
-  no_claim: "반영가 미입력",
-  unknown: "시세 미확인",
-  interior: "인테리어 · 처분가 확인 어려움",
-  excluded: "렌탈·리스 · 양도인 자산이 아닐 수 있어 제외",
+  ok: "추정 범위 안이에요",
+  over: "추정보다 비싸게 잡았어요",
+  under: "추정보다 싸게 잡았어요",
+  no_claim: "반영 금액이 없어요",
+  unknown: "시세를 모르겠어요",
+  interior: "인테리어 · 되팔기 어려워요",
+  excluded: "렌탈·리스 · 넘겨받지 못할 수 있어요",
 };
 
 export type FacilityRow = {
@@ -183,7 +192,7 @@ export function facilityResult(items: FacilityInput[], claimedFacilityPremium: n
     excess: claimedFacilityPremium === null ? null : Math.max(0, claimedFacilityPremium - value),
     basis: items.length
       ? `소유 집기의 AI 추정 범위 하단 합 (호가·감가 기준 참고값, 실제 거래가 아님). 렌탈·리스·인테리어는 0원`
-      : "시설 목록이 없어 시설 가치 미확인 (0원으로 계산)",
+      : "양도인이 시설 목록을 아직 넣지 않았어요. 시설 가치는 0원으로 보고 계산해요.",
   };
 }
 
@@ -271,10 +280,12 @@ export function computeAnalysis(base: AnalysisBase, adj: AnalysisAdjust): Analys
   const uncertain = base.lines.filter((l) => l.kind === "unknown").reduce((a, l) => a + l.amount, 0);
   const labor = Math.max(0, adj.replacement_labor);
 
+  // 비용 자료가 하나도 없으면 매출을 이익으로 착각하지 않게 이익 계산 전체를 "미확인"으로 둔다
   const sales = base.sales === null ? null : Math.round(base.sales * (1 + d));
+  const hasCosts = base.lines.length > 0;
   const variable = Math.round(variableBase * (1 + d)); // 매출이 바뀌면 변동비도 같은 비율
   const fixed = fixedBase + uncertain + labor;
-  const gross = sales === null ? null : sales - variable;
+  const gross = sales === null || !hasCosts ? null : sales - variable;
   const margin = sales && gross !== null ? gross / sales : null;
   const net = gross === null ? null : gross - fixed;
   const invest = base.deposit + adj.premium + Math.max(0, adj.extra_capex);
@@ -284,8 +295,8 @@ export function computeAnalysis(base: AnalysisBase, adj: AnalysisAdjust): Analys
   const floor = Math.min(base.premium.floor ?? 0, adj.premium);
   const residual = base.facility.value;
   const months = (amount: number, label: string): Payback => {
-    if (net === null) return { months: null, basis: "월순수익을 알 수 없어요" };
-    if (net <= 0) return { months: null, basis: "월순수익이 0 이하라 회수할 수 없어요" };
+    if (net === null) return { months: null, basis: hasCosts ? "월순수익을 알 수 없어요" : "비용 자료를 볼 수 없어 남는 돈을 계산할 수 없어요" };
+    if (net <= 0) return { months: null, basis: "남는 돈이 없어서 회수할 수 없어요" };
     const a = Math.max(0, amount);
     return { months: round1(a / net), basis: `${label} ${won(a)} ÷ 월순수익 ${won(net)}` };
   };
@@ -295,10 +306,10 @@ export function computeAnalysis(base: AnalysisBase, adj: AnalysisAdjust): Analys
 
   const assumptions: string[] = [];
   if (d !== 0) assumptions.push(`매출 ${d > 0 ? "+" : ""}${Math.round(d * 100)}% (변동비도 같은 비율로 바뀌고 고정비는 그대로)`);
-  if (uncertain > 0) assumptions.push(`분류가 확인 필요인 비용 ${won(uncertain)}은 고정비로 가정했어요`);
-  if (labor > 0) assumptions.push(`대체 인건비 ${won(labor)}을 고정비에 더했어요 (2026년 최저시급 기준)`);
-  if (base.premium.floor === null) assumptions.push("바닥권리금을 나누지 않아 바닥권리금 제외/포함 회수기간이 같아요 (미분류)");
-  if (base.facility.rows.length === 0) assumptions.push("시설 목록이 없어 확인 가능한 시설 가치를 0원으로 봤어요");
+  if (uncertain > 0) assumptions.push(`변동·고정을 모르는 비용 ${won(uncertain)}은 고정비로 계산했어요`);
+  if (labor > 0) assumptions.push(`추가 인건비 ${won(labor)}을 고정비에 더했어요 (2026년 최저시급 기준)`);
+  if (base.premium.floor === null) 
+  if (base.facility.rows.length === 0) assumptions.push("시설 목록이 없어서 시설 가치를 0원으로 보고 계산했어요");
 
   return {
     sales,

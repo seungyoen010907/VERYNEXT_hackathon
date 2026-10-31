@@ -76,7 +76,7 @@ export default function InputsTab({ listing, onChanged }: { listing: Listing; on
   return (
     <div className="space-y-4">
       <p className="rounded-xl bg-card p-4 text-sm text-muted">
-        여기 넣은 값으로 양수인 화면에 매출 증빙률, 양수인 기준 월순수익, 손익분기점, 권리금 회수기간을 계산해요. 이 서비스는 매출이나 권리금 적정가를 보증하지 않고, 낸 자료 기준으로 &quot;확인됨 / 추가 확인 필요 / 증빙 부족&quot;을 보여줘요.
+        여기 넣은 값으로 양수인에게 월 예상 순수익과 권리금 회수 기간을 계산해 보여줘요. 자세히 넣을수록 양수인이 덜 물어봐요.
       </p>
       <BasicExtras listing={listing} onChanged={onChanged} />
       <CostsSection listingId={listing.id} data={data} onSaved={setData} />
@@ -113,7 +113,7 @@ function BasicExtras({ listing, onChanged }: { listing: Listing; onChanged: () =
   }
 
   return (
-    <Section title="기본 정보 추가" hint="관리비·잔여기간은 공개 정보(L0)예요. 주장 현금매출은 검증 리포트를 볼 수 있는 양수인에게만 보여요.">
+    <Section title="기본 정보 더하기" hint="관리비와 잔여기간은 모두에게 보여요. 현금매출은 매출 검증 결과를 볼 수 있는 양수인에게만 보여요.">
       <div className="grid gap-3 sm:grid-cols-3">
         <Labeled label="월 관리비 (원)" hint={fee ? won(toNum(fee)) : undefined}>
           <input value={fee} onChange={(e) => setFee(e.target.value)} inputMode="numeric" placeholder="300000" className={INPUT} />
@@ -121,14 +121,14 @@ function BasicExtras({ listing, onChanged }: { listing: Listing; onChanged: () =
         <Labeled label="임대차 잔여기간 (개월)">
           <input value={lease} onChange={(e) => setLease(e.target.value)} inputMode="numeric" placeholder="14" className={INPUT} />
         </Labeled>
-        <Labeled label="주장 월 현금매출 (원)" hint={cash ? won(toNum(cash)) : undefined}>
+        <Labeled label="월 현금매출 (원)" hint={cash ? won(toNum(cash)) : undefined}>
           <input value={cash} onChange={(e) => setCash(e.target.value)} inputMode="numeric" placeholder="3000000" className={INPUT} />
         </Labeled>
       </div>
       <p className="mt-3 text-xs text-muted">
         권리금 {won(parts.total)} = 영업 {won(parts.business)} · 시설 {won(parts.facility)} · 바닥 {won(parts.floor)}
         {parts.unclassified > 0 && <> · <span className="font-medium text-warn">미분류 {won(parts.unclassified)}</span></>}
-        {" "}(매물 등록 때 나눈 금액, 나누지 않은 금액은 미분류 권리금으로 보여요)
+        {" "}(나누지 않은 금액은 &quot;미분류&quot;로 보여요)
       </p>
       <SaveRow busy={busy} msg={msg} onSave={save} />
     </Section>
@@ -156,7 +156,7 @@ function CostsSection({ listingId, data, onSaved }: { listingId: string; data: L
         .map((r) => ({ name: r.name.trim(), amount: toNum(r.amount), group: r.group, kind: r.kind === "auto" ? "unknown" : r.kind, kind_source: r.kind === "auto" ? "auto" : "user" }));
       const d = await apiFetch<ListingInputs>(`/api/listings/${listingId}/inputs`, { method: "PUT", body: JSON.stringify({ costs, labor }) });
       onSaved(d);
-      setMsg(`저장했어요. (${d.costs.length}개 항목)`);
+      setMsg(`비용 ${d.costs.length}개를 저장했어요.`);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "저장하지 못했어요.");
     } finally {
@@ -167,7 +167,7 @@ function CostsSection({ listingId, data, onSaved }: { listingId: string; data: L
   return (
     <Section
       title="월 비용"
-      hint="월세·관리비는 기본 정보 값을 써요. 비용 이름으로 변동비(매출에 따라 바뀜)·고정비를 자동 분류하고, 바꿀 수 있어요. 확인 필요는 손익분기점 계산에서 고정비로 가정해요."
+      hint="월세와 관리비는 따로 넣지 않아도 돼요. 이름을 보고 변동비(매출 따라 바뀌는 돈)와 고정비를 자동으로 나눠요. 틀렸다면 바꿔 주세요."
       access={<AccessPicker which="input_cost" data={data} onChanged={onSaved} listingId={listingId} />}
     >
       <div className="overflow-x-auto">
@@ -175,9 +175,9 @@ function CostsSection({ listingId, data, onSaved }: { listingId: string; data: L
           <thead className="text-left text-xs text-muted">
             <tr>
               <th className="py-1 font-medium">항목</th>
-              <th className="py-1 font-medium">묶음</th>
+              <th className="py-1 font-medium">종류</th>
               <th className="py-1 font-medium">월 금액 (원)</th>
-              <th className="py-1 font-medium">분류</th>
+              <th className="py-1 font-medium">변동·고정</th>
               <th />
             </tr>
           </thead>
@@ -201,10 +201,10 @@ function CostsSection({ listingId, data, onSaved }: { listingId: string; data: L
                 </td>
                 <td className="py-1.5 pr-2">
                   <select value={r.kind} onChange={(e) => set(i, { kind: e.target.value as CostRow["kind"] })} className={INPUT} aria-label="분류">
-                    <option value="auto">자동: {COST_KIND_LABEL[classifyCost(r.name)]}</option>
+                    <option value="auto">자동 ({COST_KIND_LABEL[classifyCost(r.name)]})</option>
                     <option value="variable">변동비</option>
                     <option value="fixed">고정비</option>
-                    <option value="unknown">확인 필요</option>
+                    <option value="unknown">잘 모르겠어요</option>
                   </select>
                 </td>
                 <td className="py-1.5 text-right">
@@ -218,14 +218,14 @@ function CostsSection({ listingId, data, onSaved }: { listingId: string; data: L
         </table>
       </div>
       <button type="button" onClick={() => setRows((prev) => [...prev, { name: "", amount: "", group: "other", kind: "auto" }])} className="mt-2 text-sm text-accent">
-        + 항목 추가
+        + 비용 더하기
       </button>
       <p className="mt-2 text-xs text-muted">
-        변동비 {won(total("variable"))} · 고정비 {won(total("fixed"))} · 확인 필요 {won(total("unknown"))} (금액 0인 줄은 저장하지 않아요)
+        변동비 {won(total("variable"))} · 고정비 {won(total("fixed"))} · 확인 필요 {won(total("unknown"))} · 금액이 없는 줄은 저장하지 않아요
       </p>
 
       <div className="mt-4 rounded-lg bg-bg p-3">
-        <p className="text-sm font-medium">인건비 운영 형태</p>
+        <p className="text-sm font-medium">함께 일하는 사람</p>
         <div className="mt-2 flex flex-wrap items-center gap-4 text-sm">
           <Labeled label="가족·동업자 (명)">
             <input value={labor.family} onChange={(e) => setLabor({ ...labor, family: Number(e.target.value.replace(/[^0-9]/g, "")) || 0 })} inputMode="numeric" className={INPUT + " w-20 bg-card"} />
@@ -233,7 +233,7 @@ function CostsSection({ listingId, data, onSaved }: { listingId: string; data: L
           <Labeled label="고용한 직원 (명)">
             <input value={labor.staff} onChange={(e) => setLabor({ ...labor, staff: Number(e.target.value.replace(/[^0-9]/g, "")) || 0 })} inputMode="numeric" className={INPUT + " w-20 bg-card"} />
           </Labeled>
-          <span className="text-xs text-muted">{labor.family === 0 && labor.staff === 0 ? "지금: 점주 혼자 운영" : "가족·동업자 인건비를 비용에 넣지 않았다면 양수인 화면에 경고가 떠요"}</span>
+          <span className="text-xs text-muted">{labor.family === 0 && labor.staff === 0 ? "지금은 혼자 운영해요" : "가족·동업자 인건비를 비용에 넣지 않았다면 양수인에게 안내가 보여요"}</span>
         </div>
       </div>
       <SaveRow busy={busy} msg={msg} onSave={save} />
@@ -263,7 +263,7 @@ function FacilitiesSection({ listing, data, onSaved }: { listing: Listing; data:
       const d = await apiFetch<ListingInputs & { ai_failed: boolean }>(`/api/listings/${listing.id}/inputs`, { method: "PUT", body: JSON.stringify({ facilities }) });
       onSaved(d);
       setRows(toFacilityRows(d.facilities));
-      setMsg(d.ai_failed ? "저장했어요. AI 시세 추정은 실패해서 '시세 미확인'으로 보여요. 다시 저장하면 다시 추정해요." : `저장했어요. (${d.facilities.length}개)`);
+      setMsg(d.ai_failed ? "저장했어요. AI가 시세를 추정하지 못해 '시세를 모르겠어요'로 보여요. 다시 저장하면 다시 추정해요." : `시설 ${d.facilities.length}개를 저장했어요.`);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "저장하지 못했어요.");
     } finally {
@@ -274,7 +274,7 @@ function FacilitiesSection({ listing, data, onSaved }: { listing: Listing; data:
   return (
     <Section
       title="시설 목록"
-      hint="시설권리금을 총액이 아니라 시설 단위로 비교해요. 저장하면 AI가 중고 처분 가능 가치의 참고 범위를 추정해요 (실제 거래가·시세 조회 아님). 사진·영수증은 데이터룸 '시설' 탭에 올려요."
+      hint="시설마다 넣으면 시설권리금의 근거가 돼요. 저장하면 AI가 중고로 팔 때 받을 만한 금액을 추정해요. 사진과 영수증은 '자료' 탭에 올려 주세요."
       access={<AccessPicker which="input_facility" data={data} onChanged={onSaved} listingId={listing.id} />}
     >
       <div className="space-y-3">
@@ -294,10 +294,10 @@ function FacilitiesSection({ listing, data, onSaved }: { listing: Listing; data:
                 <Labeled label="수량">
                   <input value={r.qty} onChange={(e) => set(i, { qty: e.target.value })} inputMode="numeric" className={INPUT + " bg-card"} />
                 </Labeled>
-                <Labeled label="구매 연도">
+                <Labeled label="산 연도">
                   <input value={r.purchase_year} onChange={(e) => set(i, { purchase_year: e.target.value })} inputMode="numeric" placeholder="2023" className={INPUT + " bg-card"} />
                 </Labeled>
-                <Labeled label="구매가 (원, 전체)">
+                <Labeled label="산 가격 (원, 전체)">
                   <input value={r.purchase_price} onChange={(e) => set(i, { purchase_price: e.target.value })} inputMode="numeric" className={INPUT + " bg-card"} />
                 </Labeled>
                 <Labeled label="상태">
@@ -312,7 +312,7 @@ function FacilitiesSection({ listing, data, onSaved }: { listing: Listing; data:
                     ))}
                   </select>
                 </Labeled>
-                <Labeled label="시설권리금 반영가 (원)">
+                <Labeled label="권리금에 넣은 금액 (원)">
                   <input value={r.claimed_value} onChange={(e) => set(i, { claimed_value: e.target.value })} inputMode="numeric" className={INPUT + " bg-card"} />
                 </Labeled>
               </div>
@@ -326,7 +326,7 @@ function FacilitiesSection({ listing, data, onSaved }: { listing: Listing; data:
                 {row && (
                   <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
                     <Tag tone={row.verdict === "ok" ? "outline" : row.verdict === "over" || row.verdict === "excluded" ? "warn" : "muted"}>{FACILITY_VERDICT_LABEL[row.verdict]}</Tag>
-                    {row.low !== null && row.high !== null && `AI 추정 · 참고 범위 ${won(row.low)} ~ ${won(row.high)}`}
+                    {row.low !== null && row.high !== null && `AI 추정 ${won(row.low)} ~ ${won(row.high)}`}
                   </span>
                 )}
                 <button type="button" onClick={() => setRows((prev) => prev.filter((_, j) => j !== i))} className="ml-auto text-xs text-muted hover:text-warn">
@@ -338,7 +338,7 @@ function FacilitiesSection({ listing, data, onSaved }: { listing: Listing; data:
         })}
       </div>
       <button type="button" onClick={() => setRows((prev) => [...prev, { ...EMPTY_FACILITY }])} className="mt-2 text-sm text-accent">
-        + 시설 추가
+        + 시설 더하기
       </button>
       {data.facilities.length > 0 && (
         <p className="mt-2 text-xs text-muted">
@@ -346,7 +346,7 @@ function FacilitiesSection({ listing, data, onSaved }: { listing: Listing; data:
           {result.excess !== null && result.excess > 0 && ` · 근거 부족 또는 초과 ${won(result.excess)}`}
         </p>
       )}
-      <SaveRow busy={busy} msg={msg} onSave={save} label={busy ? "저장·AI 추정 중..." : "저장"} />
+      <SaveRow busy={busy} msg={msg} onSave={save} label={busy ? "저장하고 AI가 추정하는 중..." : "저장하기"} />
     </Section>
   );
 }
@@ -356,7 +356,7 @@ function FacilitiesSection({ listing, data, onSaved }: { listing: Listing; data:
 function AccessPicker({ which, data, listingId, onChanged }: { which: InputKey; data: ListingInputs; listingId: string; onChanged: (d: ListingInputs) => void }) {
   const current = data.levels[which];
   const [busy, setBusy] = useState(false);
-  if (!current) return <span className="text-xs text-muted">저장하면 공개 등급을 정할 수 있어요 (기본 L1)</span>;
+  if (!current) return <span className="text-xs text-muted">저장하면 공개 범위를 정할 수 있어요</span>;
   async function change(level: AccessLevel) {
     setBusy(true);
     try {
@@ -368,7 +368,7 @@ function AccessPicker({ which, data, listingId, onChanged }: { which: InputKey; 
   }
   return (
     <label className="flex items-center gap-2 text-xs text-muted">
-      공개 등급
+      공개 범위
       <select value={current.level} disabled={busy} onChange={(e) => change(e.target.value as AccessLevel)} className="rounded-md bg-bg px-2 py-1 text-xs text-text">
         {ACCESS_LEVELS.map((l) => (
           <option key={l} value={l}>
@@ -407,7 +407,7 @@ function SaveRow({ busy, msg, onSave, label }: { busy: boolean; msg: string | nu
   return (
     <div className="mt-4 flex items-center gap-3">
       <button type="button" onClick={onSave} disabled={busy} className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
-        {label ?? (busy ? "저장 중..." : "저장")}
+        {label ?? (busy ? "저장하는 중..." : "저장하기")}
       </button>
       {msg && <span className="text-sm text-muted">{msg}</span>}
     </div>

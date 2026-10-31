@@ -39,7 +39,7 @@ type Log = { created_at: string; actor_id: string | null; action: string; target
 type Doc = { id: string; file_name: string; kind: string; access_level: AccessLevel; summary_access_level: AccessLevel };
 type RequestsResponse = { grants: Grant[]; ndas: Nda[]; questions: Question[]; logs: Log[]; documents: Doc[]; users: { id: string; name: string }[] };
 
-const GRANT_LABEL: Record<GrantStatus, string> = { requested: "승인 대기", approved: "승인됨", rejected: "거절", revoked: "회수됨" };
+const GRANT_LABEL: Record<GrantStatus, string> = { requested: "승인 기다리는 중", approved: "승인함", rejected: "거절함", revoked: "열람 취소함" };
 const GRANT_TONE: Record<GrantStatus, "caution" | "outline" | "warn" | "muted"> = { requested: "caution", approved: "outline", rejected: "warn", revoked: "muted" };
 
 export default function RequestsView({ id }: { id: string }) {
@@ -79,18 +79,18 @@ export default function RequestsView({ id }: { id: string }) {
     <div className="mx-auto max-w-6xl space-y-6">
       <div>
         <Link href={`/listings/${id}`} className="text-sm text-muted hover:text-text">
-          ← 데이터룸으로
+          ← 자료실로
         </Link>
-        <h1 className="mt-1 text-xl font-bold">구매자 요청 관리</h1>
-        <p className="text-sm text-muted">승인한 자료만 그 양수인과 양수인의 AI 에이전트가 볼 수 있어요. 승인은 30일 뒤 만료되고, 언제든 회수할 수 있어요.</p>
+        <h1 className="mt-1 text-xl font-bold">받은 요청</h1>
+        <p className="text-sm text-muted">승인하면 그 양수인만 볼 수 있어요. 승인은 30일 동안 유효하고, 언제든 취소할 수 있어요.</p>
       </div>
       {error && <p className="rounded-lg border border-warn/30 bg-warn/10 p-3 text-sm text-warn">{error}</p>}
 
-      <Section title={`열람 요청 (승인 대기 ${pending})`}>
+      <Section title={`열람 요청 · 처리할 요청 ${pending}개`}>
         {data.grants.length === 0 ? (
           <Empty>아직 열람 요청이 없어요.</Empty>
         ) : (
-          <Table head={["요청한 사람", "자료", "공개 등급", "NDA", "요청 이유", "상태", "요청 시각", ""]}>
+          <Table head={["요청한 사람", "자료", "공개 범위", "NDA", "요청 이유", "상태", "요청 시각", ""]}>
             {data.grants.map((g) => {
               const d = doc(g.target_id);
               const level = g.target_type === "document" ? d?.access_level : d?.summary_access_level;
@@ -101,10 +101,10 @@ export default function RequestsView({ id }: { id: string }) {
                   <td className="px-4 py-3 whitespace-nowrap">{name(g.buyer_id)}</td>
                   <td className="px-4 py-3">
                     {d?.file_name ?? "삭제된 자료"} · {g.target_type === "document" ? "원본" : "요약"}
-                    {question && <span className="mt-1 block text-xs text-muted">AI 질문: {question.question}</span>}
+                    {question && <span className="mt-1 block text-xs text-muted">물어본 것: {question.question}</span>}
                   </td>
                   <td className="px-4 py-3">{level && <Tag>{ACCESS_LABEL[level]}</Tag>}</td>
-                  <td className="px-4 py-3">{nda?.status === "test_agreed" ? <Tag tone="outline">테스트 동의</Tag> : <Tag tone="warn">미동의</Tag>}</td>
+                  <td className="px-4 py-3">{nda?.status === "test_agreed" ? <Tag tone="outline">동의함</Tag> : <Tag tone="warn">동의 전</Tag>}</td>
                   <td className="px-4 py-3 text-muted">{g.reason ?? "-"}</td>
                   <td className="px-4 py-3">
                     <Tag tone={GRANT_TONE[g.status]}>{GRANT_LABEL[g.status]}</Tag>
@@ -124,7 +124,7 @@ export default function RequestsView({ id }: { id: string }) {
                     )}
                     {g.status === "approved" && (
                       <button type="button" disabled={!!busy} onClick={() => decide(g, "revoke")} className="text-muted disabled:opacity-50">
-                        권한 회수
+                        열람 취소
                       </button>
                     )}
                   </td>
@@ -135,11 +135,11 @@ export default function RequestsView({ id }: { id: string }) {
         )}
       </Section>
 
-      <Section title={`양수인 AI가 보낸 질문 (${data.questions.length})`}>
+      <Section title={`양수인 AI가 물어본 것 ${data.questions.length}개`}>
         {data.questions.length === 0 ? (
           <Empty>아직 받은 AI 질문이 없어요.</Empty>
         ) : (
-          <Table head={["보낸 사람", "주제", "질문", "상태", "내 AI의 답", "시각"]}>
+          <Table head={["물어본 사람", "주제", "질문", "상태", "양도인 AI의 답", "시각"]}>
             {data.questions.map((q) => (
               <tr key={q.id} className="border-t border-bg align-top">
                 <td className="px-4 py-3 whitespace-nowrap">{name(q.buyer_id)}</td>
@@ -159,7 +159,7 @@ export default function RequestsView({ id }: { id: string }) {
         )}
       </Section>
 
-      <Section title="NDA 현황">
+      <Section title="NDA 동의한 양수인">
         {data.ndas.length === 0 ? (
           <Empty>아직 NDA에 동의한 양수인이 없어요.</Empty>
         ) : (
@@ -167,7 +167,7 @@ export default function RequestsView({ id }: { id: string }) {
             {data.ndas.map((n) => (
               <tr key={n.buyer_id} className="border-t border-bg">
                 <td className="px-4 py-3">{name(n.buyer_id)}</td>
-                <td className="px-4 py-3">{n.status === "test_agreed" ? <Tag tone="outline">테스트 동의 (법적 효력 없음)</Tag> : <Tag>철회</Tag>}</td>
+                <td className="px-4 py-3">{n.status === "test_agreed" ? <Tag tone="outline">NDA 동의 (시연용 · 법적 효력 없음)</Tag> : <Tag>철회</Tag>}</td>
                 <td className="px-4 py-3 text-muted">{n.version}</td>
                 <td className="px-4 py-3 text-muted">{formatTime(n.agreed_at)}</td>
                 <td className="px-4 py-3 text-muted">{n.revoked_at ? formatTime(n.revoked_at) : "-"}</td>
@@ -177,7 +177,7 @@ export default function RequestsView({ id }: { id: string }) {
         )}
       </Section>
 
-      <Section title="열람·권한 기록 (최근 50건)">
+      <Section title="누가 언제 봤나요? (최근 50건)">
         {data.logs.length === 0 ? (
           <Empty>아직 기록이 없어요.</Empty>
         ) : (

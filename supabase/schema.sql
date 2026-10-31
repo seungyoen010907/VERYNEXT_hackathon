@@ -100,11 +100,11 @@ create table if not exists public.users (
 );
 
 insert into public.users (id, name, roles, is_sample) values
-  ('00000000-0000-0000-0000-00000000000a', '양도인 A (데모)', '{seller}', true),
-  ('00000000-0000-0000-0000-00000000000b', '양도인 B (데모)', '{seller}', true),
-  ('00000000-0000-0000-0000-00000000000c', '양도인 C (데모)', '{seller}', true),
-  ('00000000-0000-0000-0000-0000000000b1', '양수인 (데모)', '{buyer}', true)
-on conflict (id) do nothing;
+  ('00000000-0000-0000-0000-00000000000a', '양도인 A', '{seller}', true),
+  ('00000000-0000-0000-0000-00000000000b', '양도인 B', '{seller}', true),
+  ('00000000-0000-0000-0000-00000000000c', '양도인 C', '{seller}', true),
+  ('00000000-0000-0000-0000-0000000000b1', '양수인', '{buyer}', true)
+on conflict (id) do update set name = excluded.name;
 
 -- deals = 매물(Listing)로 확장
 alter table public.deals add column if not exists seller_id         uuid references public.users(id);

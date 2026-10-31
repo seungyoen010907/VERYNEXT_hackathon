@@ -129,7 +129,7 @@ function Action({ item, role, listingId, busyId, onSet, done }: RowProps & { ite
   if (item.auto) {
     return role === "seller" ? (
       <Link href={`/listings/${listingId}`} className="shrink-0 text-accent">
-        {done ? "데이터룸 보기" : "데이터룸에 올리기"}
+        {done ? "자료실 보기" : "자료실에 올리기"}
       </Link>
     ) : null;
   }
@@ -176,7 +176,7 @@ function TodoRow({
             {timing === "late" && <Tag tone="warn">밀린 할 일</Tag>}
             {timing === "next" && <Tag tone="muted">다음 단계 · {stageTitle(item.stage)}</Tag>}
             {timing !== "next" && <Tag tone="muted">{stageTitle(item.stage)}</Tag>}
-            {item.auto && <Tag tone="outline">데이터룸 자료로 자동 확인</Tag>}
+            {item.auto && <Tag tone="outline">자료실 자료로 자동 확인</Tag>}
             {waitingConfirm && <Tag tone="outline">양도인이 넘김 · 확인 대기</Tag>}
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs">

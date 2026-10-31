@@ -386,7 +386,7 @@ export function findRisks(f: ListingFacts, fit: PersonalFit, p: BuyerProfile | n
   }
   const unknownCost = f.cost_lines.filter((l) => l.kind === "unknown");
   if (unknownCost.length > 0) {
-    risks.push({ severity: 1, title: "변동비·고정비 분류가 확인 필요인 비용이 있어요", evidence: unknownCost.map((l) => `${l.name} ${won(l.amount)}`).join(", "), impact: "손익분기점 계산에서 고정비로 가정했어요 (보수적)", how_to_check: "매출에 따라 바뀌는 비용인지 양도인에게 확인해요" });
+    risks.push({ severity: 1, title: "변동비인지 고정비인지 모르는 비용이 있어요", evidence: unknownCost.map((l) => `${l.name} ${won(l.amount)}`).join(", "), impact: "손익분기점은 고정비로 보고 넉넉하게 계산했어요", how_to_check: "매출에 따라 바뀌는 비용인지 양도인에게 확인해요" });
   }
   if (f.facility.excess !== null && f.facility.excess > 0 && f.facility.rows.length > 0) {
     risks.push({ severity: 2, title: `시설권리금 중 ${won(f.facility.excess)} 시세 초과 또는 근거 부족`, evidence: `시설권리금 ${won(f.facility.claimed)} vs 확인 가능한 시설 가치 ${won(f.facility.value)} (AI 추정 참고 범위)`, impact: "시설권리금이 실제 처분 가치보다 높게 잡혔을 수 있어요", how_to_check: "구매 영수증·모델명을 받고, 같은 모델의 중고 매물을 직접 찾아봐요" });

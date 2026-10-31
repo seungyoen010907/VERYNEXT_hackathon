@@ -4,10 +4,10 @@ import { won } from "./format";
 import type { AccessLevel, DataPoint, DocCategory, DocType, TrustLevel, VerificationStatus } from "./types";
 
 export const ACCESS_LABEL: Record<AccessLevel, string> = {
-  L0: "L0 공개",
-  L1: "L1 NDA 후",
-  L2: "L2 승인 후",
-  L3: "L3 비공개",
+  L0: "모두 공개",
+  L1: "NDA 후 공개",
+  L2: "승인 후 공개",
+  L3: "나만 보기",
 };
 
 export const CATEGORY_LABEL: Record<DocCategory, string> = {
@@ -19,10 +19,10 @@ export const CATEGORY_LABEL: Record<DocCategory, string> = {
 };
 
 export const TRUST_LABEL: Record<TrustLevel, string> = {
-  owner_stated: "점주 진술",
+  owner_stated: "양도인 입력",
   submitted: "자료 제출",
-  cross_checked: "교차 확인",
-  external: "외부 검증",
+  cross_checked: "자료끼리 확인됨",
+  external: "외부 확인",
   ai_estimate: "AI 추정",
 };
 
@@ -113,33 +113,33 @@ export const TOPIC_LABEL: Record<string, string> = {
 };
 
 export const AGENT_STATUS_LABEL: Record<string, string> = {
-  created: "질문 생성",
-  queued: "전달 대기",
-  answering: "양도인 AI 응답 중",
-  pending_approval: "양도인 승인 대기",
-  needs_documents: "추가 자료 요청",
-  answered: "답변 완료",
-  rejected: "거절",
+  created: "보내는 중",
+  queued: "보내는 중",
+  answering: "답 쓰는 중",
+  pending_approval: "승인 기다리는 중",
+  needs_documents: "자료 없음",
+  answered: "답변 옴",
+  rejected: "거절됨",
   error: "오류",
 };
 
 export const ANSWER_TYPE_LABEL: Record<string, string> = {
-  auto: "자동 응답",
-  needs_approval: "양도인 승인 필요",
-  needs_documents: "추가 자료 필요",
+  auto: "자동 답변",
+  needs_approval: "승인 필요",
+  needs_documents: "자료 필요",
   no_data: "자료 없음",
-  denied: "접근 거부",
+  denied: "볼 수 없음",
 };
 
 export const AUDIT_LABEL: Record<string, string> = {
-  view_dataroom: "데이터룸 열람",
-  download: "원본 다운로드",
-  nda_agree: "NDA 테스트 동의",
+  view_dataroom: "자료실 열람",
+  download: "원본 내려받기",
+  nda_agree: "NDA 동의",
   nda_revoke: "NDA 철회",
   grant_request: "열람 요청",
   grant_approve: "열람 승인",
   grant_reject: "열람 거절",
-  grant_revoke: "권한 회수",
-  access_change: "공개 등급 변경",
-  agent_answer: "AI 에이전트 답변",
+  grant_revoke: "열람 취소",
+  access_change: "공개 범위 변경",
+  agent_answer: "양도인 AI 답변",
 };

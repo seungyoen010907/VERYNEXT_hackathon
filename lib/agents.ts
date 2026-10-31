@@ -186,7 +186,7 @@ export async function answerQuestion(messageId: string): Promise<AgentMessage> {
       update = {
         status: "needs_documents",
         answer_type: "needs_documents",
-        answer: "데이터룸에 이 주제의 자료가 없어요. 양도인에게 자료 추가를 요청했어요.",
+        answer: "자료실에 이 주제의 자료가 없어요. 양도인에게 자료 추가를 요청했어요.",
         evidence: [],
         error: null,
         updated_at: now,
@@ -226,7 +226,7 @@ async function restrictedAnswer(
     return {
       status: "answered",
       answer_type: "denied",
-      answer: `이 정보는 NDA 테스트 동의 후에 볼 수 있어요${levels.has("L2") ? " (일부는 동의 뒤 양도인 승인도 필요해요)" : ""}. 동의한 뒤 다시 물어보세요.`,
+      answer: `이 정보는 NDA 동의 후에 볼 수 있어요${levels.has("L2") ? " (일부는 동의 뒤 양도인 승인도 필요해요)" : ""}. 동의한 뒤 다시 물어보세요.`,
       evidence: [],
       updated_at: now,
     };

@@ -31,7 +31,7 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/deals/[id]
 
     const before = await loadRoomChecklist(id, room.buyerId);
     const item = before.find((i) => i.id === itemId)!;
-    if (item.auto) throw new HttpError(400, "자료 제출 항목은 데이터룸에 자료를 올려 공개하면 저절로 체크돼요.");
+    if (item.auto) throw new HttpError(400, "자료 제출 항목은 자료실에 자료를 올려 공개하면 저절로 체크돼요.");
 
     const confirm = !!templateFor(item.key)?.confirm;
     if (status === "confirmed") {

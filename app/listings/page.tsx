@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useUser } from "@/components/RoleSwitch";
 import Tag from "@/components/Tag";
+import Gauge from "@/components/viz/Gauge";
 import { apiFetch } from "@/lib/api-client";
 import { MAX_COMPARE, setCompareIds, useCompareIds } from "@/lib/compare-selection";
 import type { Fact, PersonalFit, ScoreItem } from "@/lib/facts";
@@ -47,8 +48,8 @@ export default function ListingsPage() {
     <div className="mx-auto max-w-6xl space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold">매물</h1>
-          <p className="text-sm text-muted">지금 {user.name}로 보고 있어요.</p>
+          <h1 className="text-xl font-bold">{user.role === "buyer" ? "매물 찾기" : "내 매물"}</h1>
+          <p className="text-sm text-muted">{user.role === "buyer" ? "내 조건에 잘 맞는 매물부터 보여드려요." : "매물마다 자료실과 양도인 AI가 있어요."}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <DemoButton onDone={() => setReload((n) => n + 1)} />
@@ -65,7 +66,6 @@ export default function ListingsPage() {
 
       {data && user.role === "seller" && <MyListings items={data.mine} />}
       {data && user.role === "buyer" && <BuyerExplore data={data} />}
-      {data && user.role === "seller" && <PublishedTable items={data.published} />}
     </div>
   );
 }
@@ -80,7 +80,7 @@ function DemoButton({ onDone }: { onDone: () => void }) {
     setMsg(null);
     try {
       const r = await apiFetch<{ listings: { name: string }[] }>("/api/demo", { method: "POST" });
-      setMsg(`샘플 매물 ${r.listings.length}개를 새로 만들었어요.`);
+      setMsg(`샘플 매물 ${r.listings.length}개를 준비했어요.`);
       onDone();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "만들지 못했어요.");
@@ -95,10 +95,10 @@ function DemoButton({ onDone }: { onDone: () => void }) {
         type="button"
         onClick={run}
         disabled={busy}
-        title="양도인 A·B·C의 샘플 매물과 양수인 조건을 다시 만들어요. 샘플이 아닌 매물은 건드리지 않아요."
+        title="샘플 매물 3개와 양수인 조건을 처음 상태로 다시 만들어요. 직접 등록한 매물은 그대로 둬요."
         className="rounded-lg bg-card px-4 py-2 text-sm font-medium disabled:opacity-60"
       >
-        {busy ? "샘플 만드는 중... (최대 1분)" : "샘플 데이터로 시연하기"}
+        {busy ? "준비하는 중... (1분 이내)" : "샘플 매물로 둘러보기"}
       </button>
     </span>
   );
@@ -112,7 +112,7 @@ function MyListings({ items }: { items: Listing[] }) {
       <h2 className="mb-2 text-sm font-medium text-muted">내 매물 ({items.length})</h2>
       {items.length === 0 ? (
         <p className="rounded-xl bg-card p-6 text-center text-sm text-muted">
-          아직 등록한 매물이 없어요.{" "}
+          아직 등록한 매물이 없어요. 첫 매물을 등록해 보세요.{" "}
           <Link href="/listings/new" className="text-accent">
             매물 등록
           </Link>
@@ -140,34 +140,7 @@ function MyListings({ items }: { items: Listing[] }) {
   );
 }
 
-function PublishedTable({ items }: { items: PublicListing[] }) {
-  return (
-    <section>
-      <h2 className="mb-2 text-sm font-medium text-muted">다른 양도인의 공개 매물 ({items.length})</h2>
-      {items.length === 0 ? (
-        <p className="rounded-xl bg-card p-6 text-center text-sm text-muted">아직 공개된 매물이 없어요.</p>
-      ) : (
-        <Table head={["위치", "업종", "희망 권리금", "보증금 / 월세", "층 · 면적"]}>
-          {items.map((l) => (
-            <tr key={l.id} className="border-t border-bg">
-              <td className="px-4 py-3">
-                <Link href={`/listings/${l.id}`} className="font-medium hover:text-accent">
-                  {l.area} {l.is_sample && <Tag>샘플</Tag>}
-                </Link>
-              </td>
-              <td className="px-4 py-3">{l.business_type}</td>
-              <td className="px-4 py-3 tabular-nums">{won(l.premium)}</td>
-              <td className="px-4 py-3 tabular-nums">{`${won(l.deposit)} / ${won(l.monthly_rent)}`}</td>
-              <td className="px-4 py-3">{`${l.floor ?? "-"}층 · ${l.area_pyeong ?? "-"}평`}</td>
-            </tr>
-          ))}
-        </Table>
-      )}
-    </section>
-  );
-}
-
-// ---- 양수인: 추천·필터·비교 선택 ----
+// ---- 양수인: 추천 카드 + 화면 아래 비교 트레이 (docs/DESIGN.md 10.5) ----
 
 function BuyerExplore({ data }: { data: ListResponse }) {
   const selected = useCompareIds();
@@ -176,7 +149,6 @@ function BuyerExplore({ data }: { data: ListResponse }) {
   const [area, setArea] = useState("");
   const [budgetOnly, setBudgetOnly] = useState(false);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
-  const [minProfit, setMinProfit] = useState("");
   const [open, setOpen] = useState<string | null>(null);
 
   const areas = useMemo(() => [...new Set(data.published.map((l) => l.area))], [data.published]);
@@ -187,8 +159,8 @@ function BuyerExplore({ data }: { data: ListResponse }) {
     .filter((l) => !area || l.area === area)
     .filter((l) => !budgetOnly || l.summary?.within_budget !== false)
     .filter((l) => !verifiedOnly || !!l.summary?.report_grade.value)
-    .filter((l) => !minProfit || (l.summary?.expected_profit.value ?? -Infinity) >= Number(minProfit) * 10_000)
     .sort((a, b) => (b.recommendation?.total ?? 0) - (a.recommendation?.total ?? 0));
+  const byId = new Map(data.published.map((l) => [l.id, l]));
 
   function toggle(id: string) {
     if (selected.includes(id)) setCompareIds(selected.filter((x) => x !== id));
@@ -196,140 +168,165 @@ function BuyerExplore({ data }: { data: ListResponse }) {
   }
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-4 pb-28">
       {!data.has_profile && (
         <p className="rounded-xl bg-caution/10 p-4 text-sm text-caution">
-          인수 조건이 없어서 추천 점수가 정확하지 않아요.{" "}
+          내 조건을 넣으면 더 잘 맞는 매물을 골라 드려요.{" "}
           <Link href="/buyer/profile" className="font-medium underline">
-            인수 조건 입력하기
+            내 조건 넣기
           </Link>
         </p>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-card p-4">
-        <div>
-          <p className="font-medium">비교·실사 대상 {selected.length}/{MAX_COMPARE}</p>
-          <p className="text-xs text-muted">
-            최대 3개를 골라 AI 실사를 시작하거나 나란히 비교해요.{" "}
-            <Link href="/buyer/profile" className="text-accent">
-              인수 조건 {data.has_profile ? "수정" : "입력"}
-            </Link>
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      {/* 필터: 한 줄 */}
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="지역·업종·테마 검색" className="min-w-0 flex-1 rounded-lg bg-card px-3 py-2 sm:max-w-xs" />
+        <select value={area} onChange={(e) => setArea(e.target.value)} className="rounded-lg bg-card px-3 py-2">
+          <option value="">지역 전체</option>
+          {areas.map((a) => (
+            <option key={a}>{a}</option>
+          ))}
+        </select>
+        <select value={type} onChange={(e) => setType(e.target.value)} className="rounded-lg bg-card px-3 py-2">
+          <option value="">업종 전체</option>
+          {types.map((t) => (
+            <option key={t}>{t}</option>
+          ))}
+        </select>
+        <Chip on={budgetOnly} onClick={() => setBudgetOnly(!budgetOnly)}>
+          예산 안에서
+        </Chip>
+        <Chip on={verifiedOnly} onClick={() => setVerifiedOnly(!verifiedOnly)}>
+          매출 검증된 곳만
+        </Chip>
+      </div>
+
+      {rows.length === 0 ? (
+        <p className="rounded-xl bg-card p-6 text-center text-sm text-muted">조건에 맞는 매물이 없어요. 필터를 풀거나 &quot;샘플 매물로 둘러보기&quot;를 눌러 보세요.</p>
+      ) : (
+        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {rows.map((l, i) => {
+            const r = l.recommendation;
+            const s = l.summary;
+            const on = selected.includes(l.id);
+            return (
+              <li
+                key={l.id}
+                className={"viz-fade flex flex-col rounded-xl bg-card p-4 transition-shadow " + (on ? "ring-2 ring-accent" : "")}
+                style={{ animationDelay: `${i * 60}ms` }}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <Link href={`/listings/${l.id}`} className="font-bold hover:text-accent">
+                      {l.area} {l.business_type}
+                    </Link>
+                    <span className="mt-1 flex flex-wrap gap-1">
+                      {l.is_sample && <Tag>샘플</Tag>}
+                      {r?.info_lacking && <Tag tone="caution">정보 부족</Tag>}
+                      {s?.within_budget === false && <Tag tone="warn">예산 초과</Tag>}
+                      {s?.report_grade.value && <Tag tone="outline">{`매출 검증 ${s.report_grade.value}등급`}</Tag>}
+                    </span>
+                  </div>
+                  <Gauge value={r ? r.total / r.max : null} label={r ? String(r.total) : "-"} sub="맞는 정도" size={92} />
+                </div>
+                <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
+                  <Num label="초기 투자금" v={won(l.premium + l.deposit)} />
+                  <Num label="월평균 매출" v={s?.monthly_sales_avg.value != null ? won(s.monthly_sales_avg.value) : "미확인"} />
+                  <Num label="예상 순수익" v={s?.expected_profit.value != null ? won(s.expected_profit.value) : "미확인"} />
+                </dl>
+                {open === l.id && r && (
+                  <ul className="viz-fade mt-3 space-y-1.5 text-xs">
+                    {r.items.map((it) => (
+                      <li key={it.key}>
+                        <div className="flex justify-between">
+                          <span className="font-medium">{SCORE_LABEL[it.key]}</span>
+                          <span className="tabular-nums text-muted">{it.score === null ? "정보 부족" : `${it.score}/${it.max}`}</span>
+                        </div>
+                        <div className="mt-0.5 h-1.5 rounded-full bg-bg">
+                          {it.score !== null && <div className="viz-grow-x h-full rounded-full bg-accent" style={{ width: `${(it.score / it.max) * 100}%` }} />}
+                        </div>
+                        <p className="text-muted">{it.reason}</p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="mt-auto flex items-center justify-between gap-2 pt-4">
+                  <button type="button" onClick={() => setOpen(open === l.id ? null : l.id)} className="text-xs text-accent">
+                    {open === l.id ? "접기" : "왜 이 점수일까요?"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggle(l.id)}
+                    disabled={!on && selected.length >= MAX_COMPARE}
+                    className={"rounded-lg px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-40 " + (on ? "bg-accent text-white" : "bg-bg text-text")}
+                  >
+                    {on ? "담았어요 ✓" : "담기"}
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <p className="text-xs text-muted">
+        맞는 정도 = {Object.entries(SCORE_WEIGHTS).map(([k, w]) => `${SCORE_LABEL[k as keyof typeof SCORE_WEIGHTS]} ${w}`).join(" + ")}점. 지금 볼 수 있는 자료로만 계산하고, 모르는 항목은 빼고 계산해요.
+      </p>
+
+      {/* 비교 트레이: 화면 아래 고정 */}
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-card/95 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3">
+          <span className="text-sm font-bold tabular-nums">
+            {selected.length}/{MAX_COMPARE}
+          </span>
+          <div className="flex min-w-0 flex-1 flex-wrap gap-1.5">
+            {selected.length === 0 ? (
+              <span className="text-sm text-muted">매물을 최대 3개 담으면 AI가 양도인들에게 한 번에 물어봐요.</span>
+            ) : (
+              selected.map((id) => {
+                const l = byId.get(id);
+                return (
+                  <button key={id} type="button" onClick={() => toggle(id)} className="viz-fade rounded-full bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent" title="담기 취소">
+                    {l ? `${l.area} ${l.business_type}` : "매물"} ×
+                  </button>
+                );
+              })
+            )}
+          </div>
           <Link
             href={`/compare?ids=${selected.join(",")}`}
             aria-disabled={selected.length === 0}
             className={"rounded-lg px-4 py-2 text-sm font-medium " + (selected.length ? "bg-bg text-text" : "pointer-events-none bg-bg text-muted opacity-50")}
           >
-            비교표 보기
+            비교
           </Link>
           <Link
             href={`/diligence?ids=${selected.join(",")}`}
             aria-disabled={selected.length === 0}
             className={"rounded-lg px-4 py-2 text-sm font-medium text-white " + (selected.length ? "bg-accent" : "pointer-events-none bg-accent opacity-50")}
           >
-            AI 실사 시작
+            AI 실사 시작 →
           </Link>
         </div>
       </div>
-
-      <div className="grid gap-3 rounded-xl bg-card p-4 text-sm sm:grid-cols-3 lg:grid-cols-6">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="검색 (지역, 업종, 테마)" className="rounded-lg bg-bg px-3 py-2 sm:col-span-2" />
-        <select value={area} onChange={(e) => setArea(e.target.value)} className="rounded-lg bg-bg px-3 py-2">
-          <option value="">지역 전체</option>
-          {areas.map((a) => (
-            <option key={a}>{a}</option>
-          ))}
-        </select>
-        <select value={type} onChange={(e) => setType(e.target.value)} className="rounded-lg bg-bg px-3 py-2">
-          <option value="">업종 전체</option>
-          {types.map((t) => (
-            <option key={t}>{t}</option>
-          ))}
-        </select>
-        <input value={minProfit} onChange={(e) => setMinProfit(e.target.value.replace(/[^0-9]/g, ""))} placeholder="최소 예상 순수익 (만원)" inputMode="numeric" className="rounded-lg bg-bg px-3 py-2" />
-        <div className="flex flex-col justify-center gap-1">
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={budgetOnly} onChange={(e) => setBudgetOnly(e.target.checked)} /> 예산 안
-          </label>
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={verifiedOnly} onChange={(e) => setVerifiedOnly(e.target.checked)} /> 검증 결과 있음
-          </label>
-        </div>
-      </div>
-
-      <p className="text-xs text-muted">
-        추천 점수 = {Object.entries(SCORE_WEIGHTS).map(([k, w]) => `${SCORE_LABEL[k as keyof typeof SCORE_WEIGHTS]} ${w}`).join(" + ")} (100점). 지금 볼 수 있는 자료로만 계산해요. 모르는
-        항목은 0점이 아니라 &quot;정보 부족&quot;으로 빼고 계산해요.
-      </p>
-
-      {rows.length === 0 ? (
-        <p className="rounded-xl bg-card p-6 text-center text-sm text-muted">조건에 맞는 매물이 없어요. &quot;샘플 데이터로 시연하기&quot;로 샘플 매물을 만들 수 있어요.</p>
-      ) : (
-        <Table head={["추천", "매물", "초기 투자금", "월평균 매출", "예상 월 순수익", "검증", ""]}>
-          {rows.map((l) => {
-            const r = l.recommendation;
-            const s = l.summary;
-            const on = selected.includes(l.id);
-            return [
-              <tr key={l.id} className="border-t border-bg align-top">
-                <td className="px-4 py-3">
-                  <button type="button" onClick={() => setOpen(open === l.id ? null : l.id)} className="text-left">
-                    <span className="text-lg font-bold tabular-nums">{r?.total ?? "-"}</span>
-                    <span className="text-xs text-muted">/{r?.max ?? 100}</span>
-                    <span className="block text-xs text-accent">{open === l.id ? "이유 닫기" : "추천 이유"}</span>
-                  </button>
-                </td>
-                <td className="px-4 py-3">
-                  <Link href={`/listings/${l.id}`} className="font-medium hover:text-accent">
-                    {l.area} {l.business_type}
-                  </Link>
-                  <span className="mt-1 flex flex-wrap gap-1">
-                    {l.is_sample && <Tag>샘플</Tag>}
-                    {r?.info_lacking && <Tag tone="caution">정보 부족</Tag>}
-                    {s?.within_budget === false && <Tag tone="warn">예산 초과</Tag>}
-                    {l.themes.map((t) => (
-                      <Tag key={t}>{t}</Tag>
-                    ))}
-                  </span>
-                </td>
-                <td className="px-4 py-3 tabular-nums">{won(l.premium + l.deposit)}</td>
-                <td className="px-4 py-3 tabular-nums">{s?.monthly_sales_avg.value != null ? won(s.monthly_sales_avg.value) : <Tag>미확인</Tag>}</td>
-                <td className="px-4 py-3 tabular-nums">{s?.expected_profit.value != null ? won(s.expected_profit.value) : <Tag>미확인</Tag>}</td>
-                <td className="px-4 py-3">{s?.report_grade.value ? <Tag tone="outline">{`등급 ${s.report_grade.value}`}</Tag> : <Tag>미확인</Tag>}</td>
-                <td className="px-4 py-3">
-                  <button
-                    type="button"
-                    onClick={() => toggle(l.id)}
-                    disabled={!on && selected.length >= MAX_COMPARE}
-                    className={"rounded-lg px-3 py-1.5 text-xs font-medium disabled:opacity-40 " + (on ? "bg-accent text-white" : "bg-bg text-text")}
-                  >
-                    {on ? "비교 대상 ✓" : "비교에 추가"}
-                  </button>
-                </td>
-              </tr>,
-              open === l.id && r && (
-                <tr key={l.id + "-why"} className="bg-bg/50">
-                  <td colSpan={7} className="px-4 py-3">
-                    <ul className="grid gap-1 text-xs sm:grid-cols-2 lg:grid-cols-3">
-                      {r.items.map((i) => (
-                        <li key={i.key} className="flex gap-2">
-                          <span className="w-16 shrink-0 font-medium">{SCORE_LABEL[i.key]}</span>
-                          <span className="shrink-0 tabular-nums">{i.score === null ? <Tag>정보 부족</Tag> : `${i.score}/${i.max}`}</span>
-                          <span className="text-muted">{i.reason}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    <p className="mt-2 text-xs text-muted">공개된 숫자 {s?.visible_points ?? 0}개로 계산했어요. NDA 동의나 열람 승인을 받으면 더 정확해져요.</p>
-                  </td>
-                </tr>
-              ),
-            ];
-          })}
-        </Table>
-      )}
     </section>
+  );
+}
+
+function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button type="button" onClick={onClick} aria-pressed={on} className={"rounded-full px-3 py-1.5 text-sm transition-colors " + (on ? "bg-accent text-white" : "bg-card text-muted")}>
+      {children}
+    </button>
+  );
+}
+
+function Num({ label, v }: { label: string; v: string }) {
+  return (
+    <div className="rounded-lg bg-bg px-1.5 py-2">
+      <dt className="text-[11px] text-muted">{label}</dt>
+      <dd className={"text-xs font-bold tabular-nums " + (v === "미확인" ? "text-muted" : "")}>{v}</dd>
+    </div>
   );
 }
 
