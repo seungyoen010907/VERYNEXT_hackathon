@@ -14,9 +14,9 @@ export function PageTitle() {
 export function HeaderSearch() {
   const params = useSearchParams();
   const pathname = usePathname();
-  const current = pathname === "/stores" ? params.get("q") ?? "" : "";
+  const current = pathname === "/listings" ? params.get("q") ?? "" : "";
   return (
-    <form action="/stores" role="search" className="hidden sm:block">
+    <form action="/listings" role="search" className="hidden sm:block">
       <label className="sr-only" htmlFor="global-search">
         매물 검색
       </label>
@@ -81,13 +81,15 @@ export interface NotificationItem {
   storeName: string;
   href: string;
   at: string;
-  kind: "risk" | "request";
+  kind: "risk" | "request" | "message" | "ai";
 }
+
+const KIND_LABEL: Record<NotificationItem["kind"], string> = { risk: "위험", request: "자료 요청", message: "새 메시지", ai: "AI 분석 가능" };
 
 export function Notifications({ items }: { items: NotificationItem[] }) {
   return (
     <Dropdown label="알림" badge={items.length}>
-      <div className="border-b border-neutral-200 px-3 py-2 text-[12px] font-semibold">최근 위험 탐지 · 열린 자료 요청</div>
+      <div className="border-b border-neutral-200 px-3 py-2 text-[12px] font-semibold">새 메시지 · AI 분석 · 위험 · 자료 요청</div>
       {items.length === 0 ? (
         <p className="px-3 py-6 text-center text-[12px] text-neutral-500">새 알림이 없습니다.</p>
       ) : (
@@ -96,7 +98,7 @@ export function Notifications({ items }: { items: NotificationItem[] }) {
             <li key={n.id} className="border-b border-neutral-100 last:border-b-0">
               <Link href={n.href} className="block px-3 py-2 hover:bg-neutral-50">
                 <span className="flex items-center gap-1.5 text-[11px] text-neutral-500">
-                  <span className={n.kind === "risk" ? "text-red-700" : "text-amber-700"}>{n.kind === "risk" ? "위험" : "자료 요청"}</span>
+                  <span className={n.kind === "risk" ? "text-red-700" : n.kind === "request" ? "text-amber-700" : "text-neutral-900"}>{KIND_LABEL[n.kind]}</span>
                   <span>·</span>
                   <span className="truncate">{n.storeName}</span>
                   <span className="ml-auto whitespace-nowrap">{n.at}</span>

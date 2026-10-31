@@ -165,3 +165,15 @@ describe("조건·단계", () => {
     expect(ev).toHaveLength(1);
   });
 });
+
+describe("삭제와 기록 보존 (0004 회귀 테스트)", () => {
+  it("메신저로 파일을 공유한 매물도 삭제할 수 있고, 메시지 내용은 여전히 수정할 수 없다", async () => {
+    const { createStore, deleteStore } = await import("../repo/stores");
+    const store = await createStore(db, seller, { name: "삭제 테스트", industry: "카페", address: "서울특별시 중구 1", deposit: 0, monthlyRent: 0, premium: 0, isPublished: true });
+    const { deal } = await startDeal(db, buyer, { storeId: store.id });
+    await shareFile(db, seller, deal.id, { fileName: "pos.pdf", bytes: placeholderPdf(["delete me"]), documentType: "other" });
+    await expect(db.query(`update deal_messages set body = '변조' where deal_id = $1`, [deal.id])).rejects.toThrow(/수정할 수 없습니다/);
+    await deleteStore(db, seller, store.id);
+    expect(await db.query(`select 1 from deals where id = $1`, [deal.id])).toHaveLength(0);
+  });
+});

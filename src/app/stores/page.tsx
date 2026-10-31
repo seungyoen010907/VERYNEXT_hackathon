@@ -17,13 +17,15 @@ export default async function StoresPage({ searchParams }: PageProps<"/stores">)
     region: param(sp, "region"),
     status: param(sp, "status") as StoreStatus | undefined,
   };
-  const [rows, options] = await Promise.all([storeOverviews(db, viewer, filters), listFilterOptions(db, viewer)]);
+  const [all, options] = await Promise.all([storeOverviews(db, viewer, filters), listFilterOptions(db, viewer)]);
+  // 내 매물만 보여준다. 다른 양도인의 공개 매물은 매물 둘러보기에서 본다.
+  const rows = all.filter((o) => o.canEdit);
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-[12px] text-neutral-600">
-          {viewer.role === "buyer" ? "양도인이 공개한 매물입니다." : "내가 등록한 매물과 다른 양도인이 공개한 매물입니다."}
+          내가 등록한 매물입니다. 다른 매물은 <Link href="/listings" className="underline">매물 둘러보기</Link>에서 찾을 수 있습니다.
         </p>
         {viewer.role !== "buyer" && <ButtonLink href="/stores/new" variant="primary">매물 등록</ButtonLink>}
       </div>
@@ -53,14 +55,13 @@ export default async function StoresPage({ searchParams }: PageProps<"/stores">)
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && <EmptyRow colSpan={12}>조건에 맞는 매물이 없습니다.</EmptyRow>}
-            {rows.map(({ store, summary, progress, canEdit }) => (
+            {rows.length === 0 && <EmptyRow colSpan={12}>{viewer.role === "buyer" ? "등록한 매물이 없습니다. 매물 등록은 양도인 계정으로 할 수 있습니다." : "조건에 맞는 매물이 없습니다."}</EmptyRow>}
+            {rows.map(({ store, summary, progress }) => (
               <Tr key={store.id}>
                 <Td>
                   <Link href={`/stores/${store.id}`} className="font-medium text-neutral-900 hover:underline">{store.name}</Link>
                   <span className="mt-0.5 flex gap-1">
                     {store.isTestData && <TestDataBadge />}
-                    {canEdit && <Badge tone="neutral">내 매물</Badge>}
                     {!store.isPublished && <Badge tone="muted">비공개</Badge>}
                   </span>
                 </Td>

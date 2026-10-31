@@ -6,11 +6,12 @@ import { Badge, Kpi, KpiRow, Panel, Progress, TestDataBadge } from "@/components
 import { requestContext } from "@/server/http";
 import { STAGE_LABELS, type DiligenceStage } from "@/server/repo/diligence";
 import { storeOverviews } from "@/server/views";
+import { DiligenceSubnav } from "@/components/diligence-subnav";
 
 export default async function DiligencePage({ searchParams }: PageProps<"/diligence">) {
   const [sp, { db, viewer }] = await Promise.all([searchParams, requestContext()]);
   const stage = param(sp, "stage") as DiligenceStage | undefined;
-  const all = await storeOverviews(db, viewer);
+  const all = await storeOverviews(db, viewer, {}, { managed: true });
   const rows = stage ? all.filter((o) => o.progress.stage === stage) : all;
   const count = (s: DiligenceStage) => all.filter((o) => o.progress.stage === s).length;
   const review = all.filter((o) => o.progress.reviewReasons.length > 0);
@@ -19,6 +20,7 @@ export default async function DiligencePage({ searchParams }: PageProps<"/dilige
 
   return (
     <div className="space-y-4">
+      <DiligenceSubnav active="/diligence" />
       <KpiRow>
         <Kpi label="전체 실사 진행률 (평균)" value={`${avg}%`} sub={`${all.length}개 매물`} />
         <Kpi label="자료 수집 · 문서 분석" value={count("collecting") + count("document_analysis") + count("awaiting_analysis")} href="/diligence?stage=collecting" />
@@ -46,10 +48,10 @@ export default async function DiligencePage({ searchParams }: PageProps<"/dilige
           </thead>
           <tbody>
             {rows.length === 0 && <EmptyRow colSpan={8}>해당 단계의 매물이 없습니다.</EmptyRow>}
-            {rows.map(({ store, progress, summary }) => (
+            {rows.map(({ store, progress, summary, href }) => (
               <Tr key={store.id}>
                 <Td>
-                  <Link href={`/stores/${store.id}?tab=documents`} className="font-medium hover:underline">{store.name}</Link>
+                  <Link href={href} className="font-medium hover:underline">{store.name}</Link>
                   {store.isTestData && <span className="ml-1"><TestDataBadge /></span>}
                 </Td>
                 <Td>
@@ -81,12 +83,12 @@ export default async function DiligencePage({ searchParams }: PageProps<"/dilige
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ store, progress }) => (
+            {rows.map(({ store, progress, href }) => (
               <Tr key={store.id}>
                 <Td className="whitespace-nowrap font-medium">{store.name}</Td>
                 {progress.checklist.items.map((i) => (
                   <Td key={i.key}>
-                    <Link href={`/stores/${store.id}?tab=documents`}><ChecklistStateBadge state={i.state} required={i.required} /></Link>
+                    <Link href={href}><ChecklistStateBadge state={i.state} required={i.required} /></Link>
                   </Td>
                 ))}
               </Tr>
@@ -98,9 +100,9 @@ export default async function DiligencePage({ searchParams }: PageProps<"/dilige
       {review.length > 0 && (
         <Panel title={`검토가 필요한 항목 (${review.length})`} flush>
           <ul className="divide-y divide-neutral-100">
-            {review.map(({ store, progress }) => (
+            {review.map(({ store, progress, href }) => (
               <li key={store.id} className="flex flex-wrap items-baseline gap-x-3 px-4 py-2 text-[13px]">
-                <Link href={`/stores/${store.id}?tab=risk`} className="font-medium hover:underline">{store.name}</Link>
+                <Link href={href} className="font-medium hover:underline">{store.name}</Link>
                 <span className="text-[12px] text-neutral-600">{progress.reviewReasons.join(" · ")}</span>
               </li>
             ))}

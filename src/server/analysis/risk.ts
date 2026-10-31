@@ -4,7 +4,7 @@
  * 각 규칙은 판단 근거(evidence)와 추가로 필요한 증빙, 권장 조치를 함께 남긴다.
  * 자료가 부족하다는 사실만으로 허위·사기라고 판단하지 않는다. 자료 부족은 "확인 불가"로 표시한다.
  */
-import { RISK_LEVEL_ORDER, type Evidence, type RiskLevel } from "@/types/domain";
+import { EXPENSE_CATEGORY_LABELS as EXPENSE_LABELS, RISK_LEVEL_ORDER, type Evidence, type RiskLevel } from "@/types/domain";
 import { describeMissingCosts } from "./profit";
 import {
   ANALYSIS_BASIS,
@@ -268,6 +268,26 @@ function costRisks(input: AnalysisInput, profit: ProfitAnalysisResult): RiskResu
       evidence: [],
       requiredDocuments: avg.missingCostCategories.map((c) => `${describeMissingCosts([c])} 지출 증빙`),
       recommendedAction: "해당 비용이 실제로 없는지 양도인에게 확인하세요.",
+    });
+  }
+  // 같은 비용 항목·월이 여러 문서에서 들어오면 합산하되, 같은 내역이 중복 제출된 것인지 확인을 요청한다
+  const seen = new Map<string, Set<string>>();
+  for (const e of input.expenses) {
+    const k = `${e.category}|${e.yearMonth}`;
+    seen.set(k, new Set([...(seen.get(k) ?? []), e.normalizedDataId ?? "manual"]));
+  }
+  const dupKeys = [...seen.entries()].filter(([, ids]) => ids.size > 1).map(([k]) => k);
+  if (dupKeys.length > 0) {
+    const cats = [...new Set(dupKeys.map((k) => k.split("|")[0]))] as Array<keyof typeof EXPENSE_LABELS>;
+    risks.push({
+      ruleId: "COST_MULTIPLE_SOURCES",
+      category: "missing_costs",
+      level: "MEDIUM",
+      title: "같은 비용이 여러 자료에서 확인됨 (중복 합산 가능성)",
+      cause: `${cats.map((c) => EXPENSE_LABELS[c]).join(", ")} 항목이 같은 달에 서로 다른 자료 ${Math.max(...dupKeys.map((k) => seen.get(k)!.size))}건에서 들어와 합산했습니다 (${dupKeys.length}건)`,
+      evidence: [],
+      requiredDocuments: ["비용 자료별 포함 범위 설명 (거래처별 분리 내역인지, 같은 장부의 사본인지)"],
+      recommendedAction: "같은 장부를 다른 형식으로 다시 제출한 것이라면 한 건을 재업로드로 대체하세요. 합산이 맞으면 그대로 두면 됩니다.",
     });
   }
   const rentSource = profit.costSources.find((c) => c.category === "rent")?.source ?? "";

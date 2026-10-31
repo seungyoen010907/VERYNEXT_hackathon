@@ -13,6 +13,8 @@ import { PENDING_UPLOADS } from "../seed/pending-uploads";
 
 export interface AnalyzeRequest {
   storeName: string;
+  /** 이 매물에 이미 반영된 샘플 분석 결과의 문서 종류 (같은 샘플을 두 번 넣지 않기 위함) */
+  sampleTypesAlreadyImported?: DocumentType[];
   storeIsTestData: boolean;
   documentType: DocumentType;
   fileName: string;
@@ -55,6 +57,13 @@ export class SampleFixtureProvider implements DocumentAnalysisProvider {
   readonly name = "sample-fixture";
 
   async analyze(req: AnalyzeRequest): Promise<unknown> {
+    if (req.sampleTypesAlreadyImported?.includes(req.documentType)) {
+      throw new AppError(
+        422,
+        "SAMPLE_ALREADY_IMPORTED",
+        "이 문서 종류의 샘플 분석 결과는 이미 반영되어 있어 다시 넣지 않았습니다 (같은 수치가 두 번 합산되는 것을 막기 위함).",
+      );
+    }
     const fixture = findFixture(req.storeName, req.documentType);
     if (!fixture) {
       throw new AppError(

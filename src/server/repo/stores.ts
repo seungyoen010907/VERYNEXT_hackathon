@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { Store, StoreStatus } from "@/types/domain";
 import { STORE_STATUSES } from "@/types/domain";
 import type { Db } from "../db/client";
-import { notFound } from "../errors";
+import { AppError, notFound } from "../errors";
 import { assertCanEdit, canView, type Viewer } from "../viewer";
 import { recordActivity } from "./activities";
 import { camelize, camelizeAll, snake } from "./mappers";
@@ -206,4 +206,65 @@ export async function listFilterOptions(db: Db, viewer: Viewer) {
     industries: [...new Set(rows.map((r) => r.industry))].sort(),
     regions: [...new Set(rows.map((r) => r.region))].sort(),
   };
+}
+
+// -----------------------------------------------------------------------------
+// 매물 대표 이미지
+// -----------------------------------------------------------------------------
+const MAX_COVER = 5 * 1024 * 1024;
+
+export async function setCoverImage(db: Db, viewer: Viewer, id: string, fileName: string, bytes: Uint8Array): Promise<Store> {
+  const store = await getEditableStore(db, viewer, id);
+  const { detectMimeType } = await import("./documents");
+  const { saveFile } = await import("../storage");
+  const mime = detectMimeType(bytes, fileName);
+  if (mime !== "image/jpeg" && mime !== "image/png") throw badRequestCover("JPG 또는 PNG 이미지만 등록할 수 있습니다.");
+  if (bytes.byteLength > MAX_COVER) throw badRequestCover("이미지는 5MB 이하만 등록할 수 있습니다.");
+  const path = `${store.id}/cover/${Date.now()}.${mime === "image/png" ? "png" : "jpg"}`;
+  await saveFile(path, bytes);
+  const rows = await db.query(`update stores set cover_image_path = $2 where id = $1 returning *`, [store.id, path]);
+  return camelize<Store>(rows[0]);
+}
+
+function badRequestCover(message: string) {
+  return new AppError(400, "BAD_REQUEST", message);
+}
+
+// -----------------------------------------------------------------------------
+// 매물 둘러보기 (공개 매물 검색)
+// -----------------------------------------------------------------------------
+export interface ListingFilters {
+  q?: string;
+  industry?: string;
+  region?: string;
+  status?: "open" | "negotiating" | "closed";
+  premiumMax?: number;
+  depositMax?: number;
+  rentMax?: number;
+  revenueMin?: number;
+}
+
+/** 공개된 매물만. 매출 조건은 양도인이 재무 정보를 공개한 매물에만 적용한다. */
+export async function listListings(db: Db, filters: ListingFilters = {}): Promise<Store[]> {
+  const params: unknown[] = [];
+  const where = ["s.is_published"];
+  const add = (sql: string, v: unknown) => {
+    params.push(v);
+    where.push(sql.replace("?", `$${params.length}`));
+  };
+  if (filters.q) add("(s.name ilike ? or s.address ilike ? or s.industry ilike ?)".replace(/\?/g, () => `$${params.length + 1}`), `%${filters.q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
+  if (filters.industry) add("s.industry = ?", filters.industry);
+  if (filters.region) add("s.region = ?", filters.region);
+  if (filters.status) add("s.listing_status = ?", filters.status);
+  if (filters.premiumMax !== undefined) add("s.premium <= ?", filters.premiumMax);
+  if (filters.depositMax !== undefined) add("s.deposit <= ?", filters.depositMax);
+  if (filters.rentMax !== undefined) add("s.monthly_rent <= ?", filters.rentMax);
+  if (filters.revenueMin !== undefined) add("(s.disclose_financials and s.claimed_monthly_revenue >= ?)", filters.revenueMin);
+  const rows = await db.query(`select s.* from stores s where ${where.join(" and ")} order by (s.listing_status = 'closed'), s.created_at desc`, params);
+  return camelizeAll<Store>(rows);
+}
+
+export async function listingFilterOptions(db: Db) {
+  const rows = await db.query<{ industry: string; region: string }>(`select distinct industry, region from stores where is_published`);
+  return { industries: [...new Set(rows.map((r) => r.industry))].sort(), regions: [...new Set(rows.map((r) => r.region))].sort() };
 }

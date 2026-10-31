@@ -4,13 +4,15 @@ import { EmptyRow, Table, Td, Th, Tr } from "@/components/table";
 import { Badge, Notice, Panel, TestDataBadge } from "@/components/ui";
 import { pct, won } from "@/lib/format";
 import { requestContext } from "@/server/http";
-import { latestBundles } from "@/server/views";
+import { analysisHref, latestBundles } from "@/server/views";
+import { DiligenceSubnav } from "@/components/diligence-subnav";
 
 export default async function ProfitPage() {
   const { db, viewer } = await requestContext();
   const rows = await latestBundles(db, viewer);
   return (
     <div className="space-y-4">
+      <DiligenceSubnav active="/profit" />
       <Notice>영업이익 = 총매출 − 총영업비용. 확인되지 않은 비용은 0원으로 계산하지 않습니다. 필수 비용이 빠지면 영업이익을 계산하지 않고, 선택 비용이 빠지면 상한값으로 표시합니다.</Notice>
       <Panel title="매물별 수익성 (월평균)" flush>
         <Table>
@@ -28,12 +30,12 @@ export default async function ProfitPage() {
           </thead>
           <tbody>
             {rows.length === 0 && <EmptyRow colSpan={8}>매물이 없습니다.</EmptyRow>}
-            {rows.map(({ store, bundle }) => {
+            {rows.map(({ store, bundle, canEdit, dealId }) => {
               const avg = bundle?.profits.find((p) => p.periodType === "average");
               return (
                 <Tr key={store.id}>
                   <Td>
-                    <Link href={`/stores/${store.id}?tab=profit`} className="font-medium hover:underline">{store.name}</Link>
+                    <Link href={analysisHref({ store, canEdit, dealId }, "profit")} className="font-medium hover:underline">{store.name}</Link>
                     {store.isTestData && <span className="ml-1"><TestDataBadge /></span>}
                   </Td>
                   <Td align="right">{won(avg?.totalRevenue)}</Td>

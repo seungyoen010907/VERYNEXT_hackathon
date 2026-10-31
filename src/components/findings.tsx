@@ -3,7 +3,6 @@
  * 모든 분석 화면은 숫자만 보여주지 않고 아래 다섯 항목을 같은 순서로 보여준다.
  *   분석 결과 · 판단 근거 · 관련 증빙 자료 · 미확인 항목 · 추가로 필요한 조치
  */
-import Link from "next/link";
 import type { ReactNode } from "react";
 import type { Evidence } from "@/types/domain";
 import { won, ym } from "@/lib/format";
@@ -17,9 +16,10 @@ export function EvidenceList({ evidence, storeId, max = 8 }: { evidence: Evidenc
         <li key={i} className="flex flex-wrap items-baseline gap-x-2 text-[12px]">
           <span className="text-neutral-800">{e.description}</span>
           {e.documentId && storeId && (
-            <Link href={`/stores/${storeId}?tab=documents#doc-${e.documentId}`} className="text-[11px] text-blue-800 underline underline-offset-2">
+            // 열람 권한은 문서 API가 확인한다 (소유자, 또는 거래 대화로 공유받은 양수인)
+            <a href={`/api/documents/${e.documentId}?download=1`} target="_blank" rel="noreferrer" className="text-[11px] text-blue-800 underline underline-offset-2">
               자료 보기
-            </Link>
+            </a>
           )}
         </li>
       ))}

@@ -13,14 +13,15 @@ import { RiskBadge } from "@/components/status";
 import { Table, Td, Th, Tr } from "@/components/table";
 import { Kpi, KpiRow, Notice, Panel, TestDataBadge } from "@/components/ui";
 import { requestContext } from "@/server/http";
-import { latestBundles } from "@/server/views";
+import { analysisHref, latestBundles } from "@/server/views";
+import { DiligenceSubnav } from "@/components/diligence-subnav";
 
 export default async function RiskPage({ searchParams }: PageProps<"/risk">) {
   const [sp, { db, viewer }] = await Promise.all([searchParams, requestContext()]);
   const level = param(sp, "level") as RiskLevel | undefined;
   const category = param(sp, "category") as RiskCategory | undefined;
   const rows = await latestBundles(db, viewer);
-  const all = rows.flatMap((r) => (r.bundle?.risks ?? []).map((risk) => ({ risk, store: r.store })));
+  const all = rows.flatMap((r) => (r.bundle?.risks ?? []).map((risk) => ({ risk, store: r.store, href: analysisHref(r, "risk") })));
   const filtered = all
     .filter((x) => (!level || x.risk.level === level) && (!category || x.risk.category === category))
     .sort((a, b) => RISK_LEVEL_ORDER[b.risk.level] - RISK_LEVEL_ORDER[a.risk.level]);
@@ -28,6 +29,7 @@ export default async function RiskPage({ searchParams }: PageProps<"/risk">) {
 
   return (
     <div className="space-y-4">
+      <DiligenceSubnav active="/risk" />
       <KpiRow>
         <Kpi label="CRITICAL" value={count("CRITICAL")} href="/risk?level=CRITICAL" emphasis={count("CRITICAL") > 0} />
         <Kpi label="HIGH" value={count("HIGH")} href="/risk?level=HIGH" />
@@ -73,11 +75,11 @@ export default async function RiskPage({ searchParams }: PageProps<"/risk">) {
       ) : (
         <Panel title="탐지된 위험 (각 매물의 최신 분석)" flush>
           <div className="divide-y divide-neutral-200">
-            {filtered.map(({ risk, store }) => (
+            {filtered.map(({ risk, store, href }) => (
               <div key={risk.id}>
                 <div className="flex items-center gap-2 bg-neutral-50 px-4 py-1.5 text-[12px]">
                   <RiskBadge level={risk.level} />
-                  <Link href={`/stores/${store.id}?tab=risk`} className="font-medium hover:underline">{store.name}</Link>
+                  <Link href={href} className="font-medium hover:underline">{store.name}</Link>
                   {store.isTestData && <TestDataBadge />}
                 </div>
                 <RiskItem risk={risk} storeId={store.id} />

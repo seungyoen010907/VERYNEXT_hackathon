@@ -3,23 +3,38 @@ import { dateTime, months, won } from "@/lib/format";
 import { STAGE_LABELS } from "@/server/repo/diligence";
 import type { StoreDetail } from "@/server/views";
 import { RunAnalysisButton } from "../client/actions";
-import { RiskBadge, StoreStatusBadge, VerificationLevelBadge } from "../status";
+import { ListingStatusBadge, RiskBadge, StoreStatusBadge, VerificationLevelBadge } from "../status";
 import { Badge, ButtonLink, Notice, Progress, TestDataBadge, cx } from "../ui";
 
 export const STORE_TABS = [
   { key: "overview", label: "개요" },
-  { key: "documents", label: "증빙 자료" },
-  { key: "revenue", label: "매출 검증" },
-  { key: "profit", label: "수익성" },
-  { key: "premium", label: "권리금" },
-  { key: "risk", label: "위험 분석" },
+  { key: "deals", label: "거래 문의" },
+  { key: "analysis", label: "실사 분석" },
+  { key: "documents", label: "증빙자료" },
   { key: "report", label: "보고서" },
-  { key: "activity", label: "활동 기록" },
-  { key: "chat", label: "AI 상담" },
 ] as const;
 export type StoreTab = (typeof STORE_TABS)[number]["key"];
 
-export function StoreHeader({ detail, tab }: { detail: StoreDetail; tab: StoreTab }) {
+export const ANALYSIS_SUBTABS = [
+  { key: "revenue", label: "매출 검증" },
+  { key: "profit", label: "수익성 분석" },
+  { key: "premium", label: "권리금 분석" },
+  { key: "risk", label: "위험도 분석" },
+  { key: "missing", label: "누락 자료 · 추가 확인" },
+  { key: "chat", label: "AI 상담" },
+] as const;
+export type AnalysisSubTab = (typeof ANALYSIS_SUBTABS)[number]["key"];
+
+/** 이전 탭 주소(?tab=revenue 등)를 새 구조로 옮긴다 */
+export function resolveStoreTab(tab: string | undefined, sub: string | undefined): { tab: StoreTab; sub: AnalysisSubTab } {
+  const subs = ANALYSIS_SUBTABS.map((s) => s.key as string);
+  if (tab && subs.includes(tab)) return { tab: "analysis", sub: tab as AnalysisSubTab };
+  if (tab === "activity") return { tab: "overview", sub: "revenue" };
+  const t = STORE_TABS.some((x) => x.key === tab) ? (tab as StoreTab) : "overview";
+  return { tab: t, sub: sub && subs.includes(sub) ? (sub as AnalysisSubTab) : "revenue" };
+}
+
+export function StoreHeader({ detail, tab, dealCount }: { detail: StoreDetail; tab: StoreTab; dealCount: number }) {
   const { store, progress, summary, canEdit } = detail;
   const missingCount = progress.checklist.items.filter((i) => i.required && (i.state === "missing" || i.state === "failed")).length;
   return (
@@ -31,6 +46,7 @@ export function StoreHeader({ detail, tab }: { detail: StoreDetail; tab: StoreTa
             <StoreStatusBadge status={store.status} />
             {store.isTestData && <TestDataBadge />}
             {!store.isPublished && <Badge tone="muted">비공개</Badge>}
+            <ListingStatusBadge status={store.listingStatus} />
           </div>
           <p className="mt-0.5 text-[12px] text-neutral-500">
             {store.industry} · {store.address} · 영업 {months(store.businessPeriodMonths)} · 등록 {dateTime(store.createdAt)}
@@ -39,6 +55,7 @@ export function StoreHeader({ detail, tab }: { detail: StoreDetail; tab: StoreTa
         <div className="flex flex-wrap items-start gap-2">
           {canEdit && (
             <>
+              <ButtonLink href={`/listings/${store.id}`}>공개 화면 보기</ButtonLink>
               <ButtonLink href={`/stores/${store.id}/edit`}>정보 수정</ButtonLink>
               <RunAnalysisButton storeId={store.id} label={summary ? "재분석 실행" : "실사 분석 실행"} />
             </>
@@ -91,7 +108,7 @@ export function StoreHeader({ detail, tab }: { detail: StoreDetail; tab: StoreTa
           {missingCount > 0 && (
             <Notice tone="caution">
               필수 자료 {missingCount}건이 미제출입니다.{" "}
-              <Link href={`/stores/${store.id}?tab=documents`} className="underline">
+              <Link href={`/stores/${store.id}?tab=analysis&sub=missing`} className="underline">
                 누락 자료 체크리스트 보기
               </Link>
             </Notice>
@@ -112,6 +129,7 @@ export function StoreHeader({ detail, tab }: { detail: StoreDetail; tab: StoreTa
             )}
           >
             {t.label}
+            {t.key === "deals" && dealCount > 0 && <span className="ml-1 text-[11px] tabular-nums text-neutral-500">{dealCount}</span>}
           </Link>
         ))}
       </nav>

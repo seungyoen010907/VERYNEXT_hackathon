@@ -4,13 +4,15 @@ import { EmptyRow, Table, Td, Th, Tr } from "@/components/table";
 import { Badge, Notice, Panel, TestDataBadge } from "@/components/ui";
 import { won } from "@/lib/format";
 import { requestContext } from "@/server/http";
-import { latestBundles } from "@/server/views";
+import { analysisHref, latestBundles } from "@/server/views";
+import { DiligenceSubnav } from "@/components/diligence-subnav";
 
 export default async function PremiumPage() {
   const { db, viewer } = await requestContext();
   const rows = await latestBundles(db, viewer);
   return (
     <div className="space-y-4">
+      <DiligenceSubnav active="/premium" />
       <Notice>
         초기 투자금 = 보증금 + 권리금 + 시설 투자금 + 기타 인수 비용, 단순 회수 기간 = 초기 투자금 ÷ 월평균 영업이익. 시장 거래 데이터가 없으므로 적정 권리금은 판단하지 않습니다.
       </Notice>
@@ -31,13 +33,13 @@ export default async function PremiumPage() {
           </thead>
           <tbody>
             {rows.length === 0 && <EmptyRow colSpan={9}>매물이 없습니다.</EmptyRow>}
-            {rows.map(({ store, bundle }) => {
+            {rows.map(({ store, bundle, canEdit, dealId }) => {
               const p = bundle?.premium;
               const missing = store.facilityInvestment === null || store.otherInitialCost === null;
               return (
                 <Tr key={store.id}>
                   <Td>
-                    <Link href={`/stores/${store.id}?tab=premium`} className="font-medium hover:underline">{store.name}</Link>
+                    <Link href={analysisHref({ store, canEdit, dealId }, "premium")} className="font-medium hover:underline">{store.name}</Link>
                     {store.isTestData && <span className="ml-1"><TestDataBadge /></span>}
                   </Td>
                   <Td align="right">{won(store.deposit)}</Td>

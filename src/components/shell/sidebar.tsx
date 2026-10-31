@@ -8,8 +8,8 @@ export function Sidebar() {
     <aside className="app-sidebar flex w-full shrink-0 flex-col border-b border-neutral-200 bg-neutral-50 md:fixed md:inset-y-0 md:left-0 md:w-56 md:border-b-0 md:border-r">
       <div className="flex h-14 items-center border-b border-neutral-200 px-4">
         <Link href="/" className="leading-tight">
-          <span className="block text-[13px] font-semibold tracking-tight text-neutral-900">점포 실사 플랫폼</span>
-          <span className="block text-[11px] text-neutral-500">양도양수 매출·수익성 검증</span>
+          <span className="block text-[13px] font-semibold tracking-tight text-neutral-900">점포 양도양수</span>
+          <span className="block text-[11px] text-neutral-500">매물 · 거래 · AI 실사</span>
         </Link>
       </div>
       <Suspense fallback={<NavLinks pathname={null} />}>

@@ -156,6 +156,27 @@ describe("증빙 부족 매물에 자료를 추가하는 흐름", () => {
     expect(bundle.revenueChecks.find((c) => c.checkType === "claimed_vs_evidence")?.expectedAmount).toBe(20_000_000);
   });
 
+  it("샘플 분석 결과는 같은 문서 종류에 두 번 넣지 않는다 (비용 중복 합산 회귀 테스트)", async () => {
+    const store = await storeByName("정상 매출");
+    const { document } = await uploadDocument(db, seller, { storeId: store.id, documentType: "expense", fileName: "비용2.pdf", bytes: placeholderPdf(["expense again"]) });
+    await expect(analyzeDocument(db, seller, document.id)).rejects.toThrow(/이미 반영되어 있어/);
+    const bundle = await createAndRunFullAnalysis(db, seller, store.id);
+    expect(bundle.profits.find((p) => p.periodType === "average")?.operatingProfit).toBe(10_950_000);
+  });
+
+  it("같은 비용 항목·월이 여러 자료에서 들어오면 중복 합산 가능성을 알린다", async () => {
+    // 다른 테스트가 수치를 확인하지 않는 매물을 쓴다
+    const store = await storeByName("월매출 급변");
+    const { document } = await uploadDocument(db, seller, { storeId: store.id, documentType: "expense", fileName: "재료비_거래처B.pdf", bytes: placeholderPdf(["vendor b"]) });
+    await importExtraction(db, seller, {
+      storeId: store.id,
+      documentId: document.id,
+      raw: { document_type: "expense", expenses: [{ category: "material", year_month: "2026-09", amount: 500_000 }] },
+    });
+    const bundle = await createAndRunFullAnalysis(db, seller, store.id);
+    expect(bundle.risks.map((r) => r.ruleId)).toContain("COST_MULTIPLE_SOURCES");
+  });
+
   it("형식이 잘못된 분석 결과는 원본만 보존하고 문서를 실패로 표시한다", async () => {
     const store = await storeByName("증빙 부족");
     const { document } = await uploadDocument(db, seller, { storeId: store.id, documentType: "card_sales", fileName: "card.pdf", bytes: placeholderPdf(["bad"]) });

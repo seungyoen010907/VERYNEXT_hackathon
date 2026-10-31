@@ -14,15 +14,69 @@ import { EmptyRow, Table, Td, Th, Tr } from "@/components/table";
 import { Kpi, KpiRow, Notice } from "@/components/ui";
 import { date, dateTime, fileSize } from "@/lib/format";
 import { requestContext } from "@/server/http";
+import { listDeals } from "@/server/deals/repo";
+import { listTasks } from "@/server/deals/tasks";
+import type { Db } from "@/server/db/client";
+import type { Viewer } from "@/server/viewer";
 import { listDocuments } from "@/server/repo/documents";
 import { listStores } from "@/server/repo/stores";
 import { canEdit } from "@/server/viewer";
+
+/** 양수인: 거래별로 요청한 자료의 제출·검토 상태 (원본은 대화에서 공유된 것만 열람) */
+async function BuyerDocuments({ db, viewer }: { db: Db; viewer: Viewer }) {
+  const deals = await listDeals(db, viewer, "buying");
+  const tasks = await Promise.all(deals.map((d) => listTasks(db, d.deal.id)));
+  const shared = await db.query<{ deal_id: string; n: number }>(
+    `select m.deal_id, count(*)::int as n from deal_messages m join deals d on d.id = m.deal_id
+      where d.buyer_id = $1 and m.document_id is not null group by m.deal_id`,
+    [viewer.id],
+  );
+  const sharedBy = new Map(shared.map((r) => [r.deal_id, r.n]));
+  return (
+    <div className="space-y-4">
+      <Notice>양수인은 거래 대화에서 양도인이 공유한 자료만 열람할 수 있습니다. 거래별 요청 자료 상태입니다.</Notice>
+      <div className="rounded-sm border border-neutral-200 bg-white">
+        <Table>
+          <thead>
+            <tr>
+              <Th>매물</Th>
+              <Th align="right">공유받은 파일</Th>
+              <Th align="right">요청 완료</Th>
+              <Th align="right">제출·검토 중</Th>
+              <Th align="right">추가 자료 필요</Th>
+              <Th align="right">완료</Th>
+              <Th align="right">미요청</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {deals.length === 0 && <EmptyRow colSpan={7}>문의한 거래가 없습니다.</EmptyRow>}
+            {deals.map((d, i) => {
+              const docTasks = tasks[i].filter((t) => t.requestTargetRole === "seller");
+              const n = (...st: string[]) => docTasks.filter((t) => st.includes(t.status)).length;
+              return (
+                <Tr key={d.deal.id}>
+                  <Td><Link href={`/deals/${d.deal.id}?tab=documents`} className="font-medium hover:underline">{d.store.name}</Link></Td>
+                  <Td align="right">{sharedBy.get(d.deal.id) ?? 0}</Td>
+                  <Td align="right">{n("requested")}</Td>
+                  <Td align="right">{n("submitted", "reviewing")}</Td>
+                  <Td align="right" className={n("needs_more") ? "text-amber-800" : ""}>{n("needs_more")}</Td>
+                  <Td align="right">{n("done")}</Td>
+                  <Td align="right" muted>{n("not_requested")}</Td>
+                </Tr>
+              );
+            })}
+          </tbody>
+        </Table>
+      </div>
+    </div>
+  );
+}
 
 export default async function DocumentsPage({ searchParams }: PageProps<"/documents">) {
   const [sp, { db, viewer }] = await Promise.all([searchParams, requestContext()]);
   const owned = (await listStores(db, viewer)).filter((s) => canEdit(viewer, s));
   if (owned.length === 0) {
-    return <Notice>원본 증빙 자료는 매물 소유자(양도인)만 관리할 수 있습니다. 양수인은 각 매물의 &apos;증빙 자료&apos; 탭에서 제출 현황을 확인할 수 있습니다.</Notice>;
+    return <BuyerDocuments db={db} viewer={viewer} />;
   }
   const filters = {
     storeId: param(sp, "store"),

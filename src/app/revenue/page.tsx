@@ -4,13 +4,15 @@ import { EmptyRow, Table, Td, Th, Tr } from "@/components/table";
 import { Badge, Notice, Panel, TestDataBadge } from "@/components/ui";
 import { signedRate, won } from "@/lib/format";
 import { requestContext } from "@/server/http";
-import { latestBundles } from "@/server/views";
+import { analysisHref, latestBundles } from "@/server/views";
+import { DiligenceSubnav } from "@/components/diligence-subnav";
 
 export default async function RevenuePage() {
   const { db, viewer } = await requestContext();
   const rows = await latestBundles(db, viewer);
   return (
     <div className="space-y-4">
+      <DiligenceSubnav active="/revenue" />
       <Notice>
         양도인 주장 매출을 POS·카드·배달앱 자료와 교차 검증한 결과입니다. 카드·배달 매출이 POS에 포함된 경우 중복 합산하지 않으며,
         자료 간 집계 기준이 다르면 &apos;검증 불가&apos;로 표시합니다. 매물을 누르면 월별 비교표와 근거 자료를 볼 수 있습니다.
@@ -32,14 +34,14 @@ export default async function RevenuePage() {
           </thead>
           <tbody>
             {rows.length === 0 && <EmptyRow colSpan={9}>매물이 없습니다.</EmptyRow>}
-            {rows.map(({ store, bundle }) => {
+            {rows.map(({ store, bundle, canEdit, dealId }) => {
               const checks = bundle?.revenueChecks ?? [];
               const claimed = checks.find((c) => c.checkType === "claimed_vs_evidence");
               const n = (s: string) => checks.filter((c) => c.status === s).length;
               return (
                 <Tr key={store.id}>
                   <Td>
-                    <Link href={`/stores/${store.id}?tab=revenue`} className="font-medium hover:underline">{store.name}</Link>
+                    <Link href={analysisHref({ store, canEdit, dealId }, "revenue")} className="font-medium hover:underline">{store.name}</Link>
                     {store.isTestData && <span className="ml-1"><TestDataBadge /></span>}
                   </Td>
                   <Td align="right">{won(store.claimedMonthlyRevenue, "미입력")}</Td>

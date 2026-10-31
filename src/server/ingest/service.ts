@@ -165,7 +165,13 @@ export async function analyzeDocument(db: Db, viewer: Viewer, documentId: string
   await setDocumentStatus(db, doc.id, "analyzing");
   let raw: unknown;
   try {
+    const imported = await db.query<{ document_type: string }>(
+      `select distinct d.document_type from extracted_data e join documents d on d.id = e.document_id
+        where e.store_id = $1 and e.provider = 'sample-fixture' and d.id <> $2`,
+      [store.id, doc.id],
+    );
     raw = await provider.analyze({
+      sampleTypesAlreadyImported: imported.map((r) => r.document_type as DocumentType),
       storeName: store.name,
       storeIsTestData: store.isTestData,
       documentType: doc.documentType,

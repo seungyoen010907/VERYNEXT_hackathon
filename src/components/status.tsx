@@ -5,6 +5,8 @@
  *   CRITICAL = critical, 확인 불가·자료 부족·UNKNOWN = muted
  */
 import {
+  LISTING_STATUS_LABELS,
+  type ListingStatus,
   ANALYSIS_STATUS_LABELS,
   DOCUMENT_STATUS_LABELS,
   PAYBACK_STATUS_LABELS,
@@ -98,4 +100,8 @@ export function ChecklistStateBadge({ state, required }: { state: "complete" | "
   if (state === "submitted") return <Badge tone="info">제출 · 분석 대기</Badge>;
   if (state === "failed") return <Badge tone="negative">분석 실패</Badge>;
   return required ? <Badge tone="negative">미제출</Badge> : <Badge tone="muted">선택 · 미제출</Badge>;
+}
+
+export function ListingStatusBadge({ status }: { status: ListingStatus }) {
+  return <Badge tone={status === "open" ? "positive" : status === "negotiating" ? "info" : "muted"}>{LISTING_STATUS_LABELS[status]}</Badge>;
 }

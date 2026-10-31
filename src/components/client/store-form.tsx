@@ -63,6 +63,10 @@ export function StoreForm({ store }: { store?: Store }) {
     if (Object.keys(nextErrors).length > 0) return;
 
     const body = {
+      listingStatus: String(fd.get("listingStatus") ?? "open"),
+      facilityDescription: String(fd.get("facilityDescription") ?? ""),
+      dealConditions: String(fd.get("dealConditions") ?? ""),
+      discloseFinancials: fd.get("discloseFinancials") === "on",
       name: String(fd.get("name") ?? ""),
       industry: String(fd.get("industry") ?? ""),
       address: String(fd.get("address") ?? ""),
@@ -139,8 +143,29 @@ export function StoreForm({ store }: { store?: Store }) {
         </div>
       </Panel>
 
-      <Panel title="점포 소개">
-        <textarea name="description" defaultValue={store?.description} maxLength={5000} rows={4} className={`${inputClass} h-auto py-2`} />
+      <Panel title="매물 공개 정보" description="매물 둘러보기와 매물 상세에 표시됩니다.">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="점포 소개" className="sm:col-span-2">
+            <textarea name="description" defaultValue={store?.description} maxLength={5000} rows={4} className={`${inputClass} h-auto py-2`} />
+          </Field>
+          <Field label="시설 및 인테리어">
+            <textarea name="facilityDescription" defaultValue={store?.facilityDescription} maxLength={3000} rows={3} placeholder="예: 2024년 인테리어, 에스프레소 머신 2대, 좌석 30석" className={`${inputClass} h-auto py-2`} />
+          </Field>
+          <Field label="기타 거래 조건">
+            <textarea name="dealConditions" defaultValue={store?.dealConditions} maxLength={3000} rows={3} placeholder="예: 인수인계 1개월, 직원 고용 승계 협의 가능" className={`${inputClass} h-auto py-2`} />
+          </Field>
+          <Field label="매물 상태">
+            <select name="listingStatus" defaultValue={store?.listingStatus ?? "open"} className={inputClass}>
+              <option value="open">거래 가능</option>
+              <option value="negotiating">협의 중</option>
+              <option value="closed">거래 완료</option>
+            </select>
+          </Field>
+          <label className="flex items-center gap-2 self-end pb-1.5 text-[13px]">
+            <input type="checkbox" name="discloseFinancials" defaultChecked={store?.discloseFinancials ?? true} className="size-4 accent-neutral-900" />
+            매출·수익 정보와 증빙 검증 상태를 매물 상세에 공개
+          </label>
+        </div>
       </Panel>
 
       <div className="flex justify-end gap-2">

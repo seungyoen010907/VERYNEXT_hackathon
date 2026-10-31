@@ -22,15 +22,41 @@ export interface StoreOverview {
   summary: AnalysisSummary | null;
   progress: StoreProgress;
   canEdit: boolean;
+  /** 양수인으로 거래 중이면 거래 ID */
+  dealId: string | null;
+  /** 이 매물의 분석 화면 주소 (소유자: 내 매물 관리, 양수인: 거래 워크스페이스) */
+  href: string;
 }
 
-export async function storeOverviews(db: Db, viewer: Viewer, filters: StoreFilters = {}): Promise<StoreOverview[]> {
-  const stores = await listStores(db, viewer, filters);
+/** 실사 관리 대상 매물: 내가 등록한 매물 + 양수인으로 거래 중인 매물 */
+async function managedStores(db: Db, viewer: Viewer, filters: StoreFilters): Promise<{ stores: Store[]; deals: Map<string, string> }> {
+  const visible = await listStores(db, viewer, filters);
+  const dealRows = await db.query<{ id: string; store_id: string }>(`select id, store_id from deals where buyer_id = $1`, [viewer.id]);
+  const deals = new Map(dealRows.map((d) => [d.store_id, d.id]));
+  const stores = visible.filter((s) => s.ownerId === viewer.id || deals.has(s.id));
+  for (const storeId of deals.keys()) {
+    if (!stores.some((s) => s.id === storeId) && Object.keys(filters).length === 0) stores.push(await getStore(db, viewer, storeId));
+  }
+  return { stores, deals };
+}
+
+export function analysisHref(o: { store: Store; dealId: string | null; canEdit: boolean }, sub?: string): string {
+  if (o.canEdit) return `/stores/${o.store.id}${sub ? `?tab=analysis&sub=${sub}` : ""}`;
+  if (o.dealId) return `/deals/${o.dealId}${sub ? `?tab=analysis&sub=${sub}` : "?tab=overview"}`;
+  return `/listings/${o.store.id}`;
+}
+
+export async function storeOverviews(db: Db, viewer: Viewer, filters: StoreFilters = {}, opts: { managed?: boolean } = {}): Promise<StoreOverview[]> {
+  let stores: Store[];
+  let deals = new Map<string, string>();
+  if (opts.managed) ({ stores, deals } = await managedStores(db, viewer, filters));
+  else stores = await listStores(db, viewer, filters);
   const summaries = await latestAnalysisSummaries(db, stores.map((s) => s.id));
   return Promise.all(
     stores.map(async (store) => {
       const summary = summaries.get(store.id) ?? null;
-      return { store, summary, progress: await computeProgress(db, store, summary ?? undefined), canEdit: canEdit(viewer, store) };
+      const base = { store, canEdit: canEdit(viewer, store), dealId: deals.get(store.id) ?? null };
+      return { ...base, summary, progress: await computeProgress(db, store, summary ?? undefined), href: analysisHref(base) };
     }),
   );
 }
@@ -115,7 +141,7 @@ export type StoreDetail = Awaited<ReturnType<typeof storeDetail>>;
 
 /** 볼 수 있는 모든 매물의 최신 완료 분석 결과 (분석 화면별 매물 목록용) */
 export async function latestBundles(db: Db, viewer: Viewer) {
-  const overviews = await storeOverviews(db, viewer);
+  const overviews = await storeOverviews(db, viewer, {}, { managed: true });
   return Promise.all(
     overviews.map(async (o) => ({
       ...o,

@@ -9,7 +9,7 @@ import { storeOverviews } from "@/server/views";
 
 export default async function ReportsPage() {
   const { db, viewer } = await requestContext();
-  const rows = await storeOverviews(db, viewer);
+  const rows = await storeOverviews(db, viewer, {}, { managed: true });
   return (
     <div className="space-y-4">
       <Notice>보고서는 매물별 최신 완료 분석을 기준으로 만듭니다. 생성한 보고서는 분석 이력과 함께 보관되며 인쇄용 화면에서 PDF로 저장할 수 있습니다.</Notice>
@@ -27,10 +27,10 @@ export default async function ReportsPage() {
           </thead>
           <tbody>
             {rows.length === 0 && <EmptyRow colSpan={6}>매물이 없습니다.</EmptyRow>}
-            {rows.map(({ store, summary, progress, canEdit }) => (
+            {rows.map(({ store, summary, progress, canEdit, dealId }) => (
               <Tr key={store.id}>
                 <Td>
-                  <Link href={`/stores/${store.id}?tab=report`} className="font-medium hover:underline">{store.name}</Link>
+                  <Link href={canEdit ? `/stores/${store.id}?tab=report` : `/deals/${dealId}?tab=analysis&sub=report`} className="font-medium hover:underline">{store.name}</Link>
                   {store.isTestData && <span className="ml-1"><TestDataBadge /></span>}
                 </Td>
                 <Td className="whitespace-nowrap text-[12px]">{summary ? dateTime(summary.completedAt) : "—"}</Td>
@@ -42,13 +42,17 @@ export default async function ReportsPage() {
                 </Td>
                 <Td align="right">
                   <span className="inline-flex gap-2">
-                    {summary?.hasReport && (
+                    {summary?.hasReport && canEdit && (
                       <Link href={`/reports/${summary.analysisId}`} className="inline-flex h-8 items-center rounded-sm border border-neutral-300 px-3 text-[13px] hover:bg-neutral-50">
                         인쇄용 보기
                       </Link>
                     )}
                     {summary && canEdit && <GenerateReportButton analysisId={summary.analysisId} regenerate={summary.hasReport} />}
-                    {summary && !summary.hasReport && !canEdit && <Link href={`/stores/${store.id}?tab=report`} className="text-[12px] underline">미리보기</Link>}
+                    {!canEdit && dealId && (
+                      <Link href={`/deals/${dealId}/report`} className="inline-flex h-8 items-center rounded-sm border border-neutral-300 px-3 text-[13px] hover:bg-neutral-50">
+                        거래 보고서
+                      </Link>
+                    )}
                   </span>
                 </Td>
               </Tr>
