@@ -16,7 +16,7 @@ async function ReportLoader({ params }: { params: PageProps<"/deals/[id]/report"
   const { id } = await params;
   // Step 1은 가짜 리포트. Step 3에서 GET /api/deals/[id]/report로 바꾼다.
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-2xl space-y-4">
       <div>
         <Link href={`/deals/${id}`} className="text-sm text-muted hover:text-text">
           ← 거래방으로

@@ -9,7 +9,7 @@ const STEPS = [
 
 export default function Home() {
   return (
-    <div className="space-y-8">
+    <div className="mx-auto max-w-2xl space-y-8">
       <section>
         <h1 className="text-2xl font-bold">점포 양도양수, 매출 확인부터 계약까지</h1>
         <p className="mt-2 text-muted">

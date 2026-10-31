@@ -11,7 +11,7 @@ export default function DealsPage() {
   const deals = mockDeals;
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-2xl space-y-4">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold">내 거래방</h1>
         <Link href="/deals/new" className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white">

@@ -1,38 +1,46 @@
-// 계약 로드맵: 전체 단계와 현재 위치
+// 계약 로드맵: 전체 단계와 현재 위치를 가로 한 줄로
 
 import type { RoadmapStep } from "@/lib/types";
 
 export default function Roadmap({ steps }: { steps: RoadmapStep[] }) {
   return (
-    <ol className="space-y-1">
-      {steps.map((step, i) => (
-        <li key={step.key} className="flex items-center gap-3 py-1">
-          <span
-            className={
-              "flex size-6 shrink-0 items-center justify-center rounded-full border text-xs " +
-              (step.status === "done"
-                ? "border-border bg-bg text-muted"
-                : step.status === "current"
-                  ? "border-accent bg-accent font-bold text-white"
-                  : "border-border text-muted")
-            }
-          >
-            {step.status === "done" ? "✓" : i + 1}
-          </span>
-          <span
-            className={
-              step.status === "current"
-                ? "font-bold text-accent"
-                : step.status === "done"
-                  ? "text-muted line-through"
-                  : "text-muted"
-            }
-          >
-            {step.title}
-          </span>
-          {step.status === "current" && <span className="text-xs text-accent">지금 단계</span>}
-        </li>
-      ))}
-    </ol>
+    <div className="overflow-x-auto">
+      <ol className="flex min-w-[640px]">
+        {steps.map((step, i) => (
+          <li key={step.key} className="relative flex flex-1 flex-col items-center text-center">
+            {/* 앞 단계와 잇는 선 */}
+            {i > 0 && (
+              <span
+                className={
+                  "absolute top-3 right-1/2 h-0.5 w-full -translate-y-1/2 " +
+                  (step.status === "todo" ? "bg-border" : "bg-accent")
+                }
+                aria-hidden
+              />
+            )}
+            <span
+              className={
+                "relative z-10 flex size-6 items-center justify-center rounded-full border text-xs " +
+                (step.status === "done"
+                  ? "border-accent bg-card text-accent"
+                  : step.status === "current"
+                    ? "border-accent bg-accent font-bold text-white"
+                    : "border-border bg-card text-muted")
+              }
+            >
+              {step.status === "done" ? "✓" : i + 1}
+            </span>
+            <span
+              className={
+                "mt-1.5 px-1 text-xs " +
+                (step.status === "current" ? "font-bold text-accent" : "text-muted")
+              }
+            >
+              {step.title}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }

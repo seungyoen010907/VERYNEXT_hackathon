@@ -3,7 +3,7 @@
 // 거래방 메시지. Step 1은 가짜 데이터로 화면에만 추가한다.
 // Step 4에서 3초마다 GET /api/deals/[id]/messages?after=... 로 새 메시지를 가져온다.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ROLE_LABEL } from "@/components/RoleSwitch";
 import { formatTime } from "@/lib/format";
 import type { Message, Role } from "@/lib/types";
@@ -11,6 +11,12 @@ import type { Message, Role } from "@/lib/types";
 export default function Messages({ initial, role }: { initial: Message[]; role: Role }) {
   const [messages, setMessages] = useState(initial);
   const [body, setBody] = useState("");
+  const listRef = useRef<HTMLUListElement>(null);
+
+  // 새 메시지가 생기면 맨 아래로 스크롤
+  useEffect(() => {
+    listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
+  }, [messages.length]);
 
   function send(e: React.FormEvent) {
     e.preventDefault();
@@ -24,8 +30,8 @@ export default function Messages({ initial, role }: { initial: Message[]; role: 
   }
 
   return (
-    <div>
-      <ul className="space-y-3">
+    <div className="flex h-full flex-col">
+      <ul ref={listRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
         {messages.map((m) => {
           if (m.role === "agent") {
             return (
@@ -52,7 +58,7 @@ export default function Messages({ initial, role }: { initial: Message[]; role: 
           );
         })}
       </ul>
-      <form onSubmit={send} className="mt-4 flex gap-2">
+      <form onSubmit={send} className="mt-4 flex shrink-0 gap-2 border-t border-border pt-4">
         <input
           value={body}
           onChange={(e) => setBody(e.target.value)}

@@ -59,7 +59,7 @@ export default function NewDealPage() {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-5">
+    <form onSubmit={submit} className="mx-auto max-w-2xl space-y-5">
       <div>
         <h1 className="text-xl font-bold">거래방 만들기</h1>
         <p className="mt-1 text-sm text-muted">점포 정보와 양도인이 말한 매출을 입력하면 거래방이 만들어져요.</p>
