@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+/*
+ * B2B 데이터 플랫폼 스타일
+ * 흰색·연회색 배경, 검정·짙은 회색 텍스트, 포인트 색은 상태 표시와 포커스에만 사용.
+ * 그림자·그라데이션·애니메이션은 쓰지 않는다. 다크 모드는 지원하지 않는다.
+ */
+:root {
+  color-scheme: light;
+}
+
+body {
+  font-family:
+    "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI",
+    sans-serif;
+  font-size: 13px;
+  letter-spacing: -0.005em;
+}
+
+/* 수치는 자릿수를 맞춰 표시한다 */
+.tabular-nums,
+table {
+  font-variant-numeric: tabular-nums;
+}
+
+@media print {
+  .app-sidebar,
+  .app-header,
+  .no-print {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+  body {
+    background: white !important;
+  }
+  .md\:pl-56 {
+    padding-left: 0 !important;
+  }
+}
